@@ -53,7 +53,7 @@ of the ``DSigCtx`` class. There are some exceptions to the
 rule. For example, the xmlsec ``xmlSecCryptoAppDefaultKeysMngrAdoptKey``
 function becomes the ``addKey`` method of class ``KeysMngr``
 reflecting that we only support "default keys managers" and that
-we do not support keys adaption (but copy the key).
+we do not support keys adoption (but copy the key).
 
 
 Keys
@@ -67,7 +67,7 @@ Instead, I model keys as normal Python objects (with independent
 lifetime) **but** copy the encapsulated ``xmlsec`` key whenever
 it is passed over to a ``KeysMngr`` or a signature/encryption
 context. This has important ramifications: you do not need to worry
-about the validity of a key (it is valid as long as you have a handle to it),
+about the validity of a key (it is valid as long as you have a handle to it);
 however, modifications to a key have no effects on the (copied)
 ``xmlsec`` key previously passed over to a keys manager or
 signature/encryption context. This forces some changes in the
@@ -140,6 +140,18 @@ either by me or the examples.
 
 It is likely that the binding will become more complete over time.
 
+
+Documentation
+=============
+
+I do not like separate documentation (apart from overviews).
+I am a fan of documentation derived automatically from the source -- if
+possible available directly inside the Python session.
+As a consequence, you can use ``pydoc`` or Python's ``help`` builtin
+to get detailed documentation (apart from looking at the source and
+reading this overview).
+
+
 Examples
 ========
 
@@ -182,7 +194,7 @@ What is signed actually is a standard XML file containing somewhere
 a signature template. The template describes how the signature should
 be performed and contains placeholders for the signature parts.
 The XML security libraries examples view the complete XML file as
-a template. Below is a function which signed such a template.
+a template. Below is a function which signs such a template.
 
 >>> def sign_file(tmpl_file, key_file):
 ...     """sign *tmpl_file* with key in *key_file*.
@@ -190,7 +202,7 @@ a template. Below is a function which signed such a template.
 ...     *tmpl_file* actually contains an XML document containing a signature
 ...     template. It can be a file, a filename string or an HTTP/FTP url.
 ... 
-...     *key_file* contains the PEM encode private key. It must be a filename string.
+...     *key_file* contains the PEM encoded private key. It must be a filename string.
 ...     """
 ...     from lxml.etree import parse, tostring
 ...     doc = parse(tmpl_file)
@@ -256,7 +268,7 @@ a template it has additional methods to help in the template
 construction.
 
 In addition, the module provides factories (``Signature`` and ``EncData``)
-the facilitate the creation of the top level structure of a signature
+which facilitate the creation of the top level structure of a signature
 or encryption template.
 
 >>> def sign_file_create_template(xml_file, key_file):
@@ -264,7 +276,7 @@ or encryption template.
 ... 
 ...     *xml_file* can be a file, a filename string or an HTTP/FTP url.
 ... 
-...     *key_file* contains the PEM encode private key. It must be a filename string.
+...     *key_file* contains the PEM encoded private key. It must be a filename string.
 ...     """
 ...     # template aware infrastructure
 ...     from dm.xmlsec.binding.tmpl import parse, Element, SubElement, \
@@ -314,7 +326,7 @@ Signing with an X509 certificate
 ...     """sign *xml_file* with *key_file* and include content of *cert_file*.
 ...     *xml_file* can be a file, a filename string or an HTTP/FTP url.
 ... 
-...     *key_file* contains the PEM encode private key. It must be a filename string.
+...     *key_file* contains the PEM encoded private key. It must be a filename string.
 ... 
 ...     *cert_file* contains a PEM encoded certificate (corresponding to *key_file*),
 ...     included as `X509Data` in the dynamically created `Signature` template.
@@ -538,6 +550,37 @@ XML Security Library example: Simple encryption template file for encrypt1 examp
 Encrypting xml file with a dynamically created template
 -------------------------------------------------------
 
+>>> def encrypt_file_create_template(xml_file, key_file):
+...     """encrypt *xml_file* with key in *key_file*, generating the template.
+... 
+...     *xml_file* contains an XML file content of which should be encrypted.
+...     It can be a file, a filename string or an HTTP/FTP url.
+...     *key_file* contains a triple DES key. It must be a filename string.
+...     """
+...     # template aware infrastructure
+...     from dm.xmlsec.binding.tmpl import parse, Element, SubElement, \
+...          fromstring, XML
+...     from dm.xmlsec.binding.tmpl import EncData
+...     doc = parse(xml_file)
+...     encData = EncData(xmlsec.TransformDes3Cbc, type=xmlsec.TypeEncElement)
+...     encData.ensureCipherValue() # target for encryption result
+...     keyInfo = encData.ensureKeyInfo()
+...     encCtx = xmlsec.EncCtx()
+...     encKey = xmlsec.Key.readBinaryFile(xmlsec.KeyDataDes, key_file)
+...     # must set the key before the key assignment to `encCtx`
+...     encKey.name = key_file
+...     encCtx.encKey = encKey
+...     ed = encCtx.encryptXml(encData, doc.getroot())
+...     return tostring(ed.getroottree())
+... 
+>>> encrypted_file = encrypt_file_create_template(
+...     BASEDIR + "encrypt2-doc.xml",
+...     BASEDIR + "deskey.bin"
+...     )
+>>> print encrypted_file
+<!-- 
+XML Security Library example: Original XML doc file before encryption (encrypt2 example). 
+--><EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#" Type="http://www.w3.org/2001/04/xmlenc#Element"><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#tripledes-cbc"/><ns0:KeyInfo xmlns:ns0="http://www.w3.org/2000/09/xmldsig#"/><CipherData><CipherValue>...</CipherValue></CipherData></EncryptedData>
 
 
 
