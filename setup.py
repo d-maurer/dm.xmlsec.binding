@@ -1,5 +1,6 @@
 import sys, commands
 from os.path import abspath, dirname, join, exists
+from os import environ
 
 # see whether Cython is installed
 try: import Cython
@@ -92,11 +93,19 @@ libxml2_libs = commands.getoutput('xml2-config --libs')
 if libxml2_libs[:2] not in ["-l", "-L"]:
     sys.exit("Error : cannot get LibXML2 linker flags; do you have the `libxml2` development package installed?")
 
-xmlsec1_cflags = commands.getoutput("xmlsec1-config --cflags")
+crypto_engine = environ.get("XMLSEC_CRYPTO_ENGINE")
+if crypto_engine is None:
+  crypto_engine = commands.getoutput("xmlsec1-config --crypto")
+  if not crypto_engine:
+    sys.exit("Error: cannot get XMLSec1 crypto engine")
+else:
+  assert crypto_engine in ("openssl", "gnutls", "nss")
+crypto_engine = " --crypto=" + crypto_engine
+xmlsec1_cflags = commands.getoutput("xmlsec1-config --cflags" + crypto_engine)
 if xmlsec1_cflags[:2] not in ["-I", "-D"]:
-    sys.exit("Error : cannot get XMLSec1 pre-processor and compiler flags; do you have the `libxmlsec1` development package installed?")
+    sys.exit("Error: cannot get XMLSec1 pre-processor and compiler flags; do you have the `libxmlsec1` development package installed?")
 
-xmlsec1_libs = commands.getoutput("xmlsec1-config --libs")
+xmlsec1_libs = commands.getoutput("xmlsec1-config --libs" + crypto_engine)
 if xmlsec1_libs[:2] not in ["-l", "-L"]:
     sys.exit("Error : cannot get XMLSec1 linker flags; do you have the `libxmlsec1` development package installed?")
 

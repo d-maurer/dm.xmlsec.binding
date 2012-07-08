@@ -23,6 +23,13 @@ for ``lxml`` lack the respective files. In those cases, you may need to
 download an `lxml` source distribution and let the environment
 variable ``LXML_HOME`` point to its root.
 
+``xmlsec`` can use different cryptographic engines (currently ``openssl``,
+``gnutls`` and ``nss``). By default, this package configures
+``xmlsec`` to use its default engine. Should you require a different
+engine, you can set the envvar ``XMLSEC_CRYPTO_ENGINE`` to the corresponding
+value. In this case, you may need to pass the name of your crypto engine
+to the ``initialize`` function.
+
 I have tried installation only on Linux, it may not work on other
 platforms.
 
