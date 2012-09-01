@@ -523,7 +523,7 @@ cdef class EncCtx:
     cdef bint decrypt_content = node.get("Type") == TypeEncContent 
     # must provide sufficient context to find the decrypted node
     parent = node.getparent()
-    if parent is not None: enc_index = parent.index[node]
+    if parent is not None: enc_index = parent.index(node)
     ctx.flags = XMLSEC_ENC_RETURN_REPLACED_NODE
     with nogil:
       rv = xmlSecEncCtxDecrypt(ctx, node._c_node)

@@ -138,6 +138,22 @@ The ``xmlsec`` examples have been modified to reflect this peculiarity
 of the ``lxml`` binding.
 
 
+Failure handling
+----------------
+
+As a C library, ``xmlsec`` mostly uses return codes to indicate success/failure
+for its functions.
+In rare situations, a "status" field needs to be checked as well. 
+In Python, we have exceptions. Thus, I change failure handling: any
+failure is indicated by an exception. Currently, there are two exception
+classes: the base class ``Error`` and a derived class ``VerificationError``.
+``Error`` is used whenever the return code of an ``xmlsec`` function
+indicates a failure. ``VerificationError`` is used for signature
+verification when the ``verify`` call returned an "ok" status but
+the status field in the context indicates that the verification failed.
+
+
+
 Binding extent
 --------------
 
@@ -780,3 +796,39 @@ in the error context.
 Note that the numbers in the error output are source code line numbers.
 They depend on the ``xmlsec`` version you have installed and
 consequently can be different when you try this code.
+
+
+Notes
+=====
+
+XML ids
+-------
+
+Digital signatures and XML encryption can make use of XML ids. For example,
+this is the case for SAML2. XML ids can make problems as XML does not
+specify which attributes may contain an id. Newer versions of XML designated
+``xml:id`` for this purpose, but older standards (again SAML2 is an
+example) does not yet use this but their own id attributes.
+As a consequence, the XML processing system (``libxml2`` in our context)
+must be informed about which attributes can contain ids.
+
+``libxml2`` knows about ``xml:id`` and if the XML document is
+validated against a document type or an XML schema, it uses the information
+described there to identify id attributes. If the XML document
+is not validated, any id attributes different from ``xml:id``
+must be made known by the application through a call to
+the ``addIds(node, ids)`` function defined by ``xmlsec``.
+``addIds`` visits the children of *node* (probably recursively)
+and extends the id map (it maps ids to nodes) of the document of *node*
+for each found attribute whose name is listed in *ids* (a list of
+attribute names).
+
+Note that the error information provided by ``xmlsec`` in case
+of an undeclared id attribute may be difficult to decipher. It will probably
+tell you about a problem with an XPointer transform in this case.
+
+Note also that id references may be made indirectly, e.g. via
+fragment parts of urls (again, SAML2 is an example). Thus,
+when signing, signature verification or encryption/decryption
+fails for no apparent reason it may be a good idea to check
+whether this might be caused by unknown id attribute information.

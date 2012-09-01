@@ -5,5 +5,6 @@ from doctest import DocFileSuite, \
 def testsuite():
   return DocFileSuite(
     'README.txt',
-    optionflags=NORMALIZE_WHITESPACE | IGNORE_EXCEPTION_DETAIL | ELLIPSIS,
+    'tests.txt', # additional tests
+    optionflags=NORMALIZE_WHITESPACE | IGNORE_EXCEPTION_DETAIL | ELLIPSIS | REPORT_UDIFF,
     )
