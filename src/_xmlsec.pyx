@@ -586,7 +586,7 @@ cdef xmlChar2py(xmlChar * xs):
   """convert *xs* into `None`, `str` or `unicode`.
   """
   if xs == NULL: return None
-  return pyunicode(<char *> xs)
+  return pyunicode(xs)
   
 
 

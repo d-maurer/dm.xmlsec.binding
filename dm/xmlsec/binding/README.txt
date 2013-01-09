@@ -832,3 +832,13 @@ fragment parts of urls (again, SAML2 is an example). Thus,
 when signing, signature verification or encryption/decryption
 fails for no apparent reason it may be a good idea to check
 whether this might be caused by unknown id attribute information.
+
+
+History
+=======
+
+1.1
+  for lxml 3.x
+
+1.0
+  for lxml 2.x
