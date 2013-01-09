@@ -137,10 +137,10 @@ def get_lxml_include_dirs():
 
 setupArgs = dict(
     include_package_data=True,
-    setup_requires=["lxml",], # see "http://mail.python.org/pipermail/distutils-sig/2006-October/006749.html" in case of problems
+    setup_requires=["lxml<=2.9",], # see "http://mail.python.org/pipermail/distutils-sig/2006-October/006749.html" in case of problems
     install_requires=[
       'setuptools', # to make "buildout" happy
-      "lxml",
+      "lxml<=2.9",
     ] ,
     namespace_packages=['dm', 'dm.xmlsec',
                         ],
@@ -159,7 +159,7 @@ def pread(filename, base=pd): return open(join(base, filename)).read().rstrip()
 
 setup(name='dm.xmlsec.binding',
       version=pread('VERSION.txt').split('\n')[0],
-      description="Cython/lxml based binding for the XML security library",
+      description="Cython/lxml based binding for the XML security library -- for lxml 2.x",
       long_description=pread('README.txt'),
       classifiers=[
         #'Development Status :: 3 - Alpha',
