@@ -126,6 +126,16 @@ cdef extern from 'cxmlsec.h':
         int xmlSecCryptoAppKeysMngrCertLoad(xmlSecKeysMngrPtr, char * filename, xmlSecKeyDataFormat, xmlSecKeyDataType) nogil
         int xmlSecCryptoAppKeysMngrCertLoadMemory(xmlSecKeysMngrPtr, const_unsigned_char *, size_t, xmlSecKeyDataFormat, xmlSecKeyDataType) nogil
 
+        ctypedef void * xmlSecPtrList
+        ctypedef xmlSecPtrList * xmlSecPtrListPtr
+        ctypedef void * xmlSecPtr
+
+        int xmlSecPtrListAdd(xmlSecPtrListPtr, xmlSecPtr) nogil
+        int xmlSecPtrListEmpty(xmlSecPtrListPtr) nogil
+ 
+        cdef struct xmlSecKeyInfoCtx:
+                xmlSecPtrList enabledKeyData
+                
         ctypedef enum xmlSecDSigStatus:
                 xmlSecDSigStatusUnknown = 0
                 xmlSecDSigStatusSucceeded = 1
@@ -134,7 +144,7 @@ cdef extern from 'cxmlsec.h':
 ##                void * userData
 ##                unsigned int flags
 ##                unsigned int flags2
-##                xmlSecKeyInfoCtx keyInfoReadCtx
+                xmlSecKeyInfoCtx keyInfoReadCtx
 ##                xmlSecKeyInfoCtx keyInfoWriteCtx
 ##                xmlSecTransformCtx transformCtx
 ##                xmlSecTransformUriType enabledReferenceUris

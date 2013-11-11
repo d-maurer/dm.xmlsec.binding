@@ -516,6 +516,9 @@ Verifying a signature with additional restrictions
 ...         dsigCtx.enableReferenceTransform(tid)
 ...     dsigCtx.enableSignatureTransform(xmlsec.TransformRsaSha1)
 ...     dsigCtx.enableReferenceTransform(xmlsec.TransformEnveloped)
+...     # thanks to a patch provided by Greg Vishnepolsky, we can know
+...     #   also limit the acceptable key data
+...     dsigCtx.setEnabledKeyData([xmlsec.KeyDataX509])
 ...     dsigCtx.verify(node)
 ... 
 >>> # this works
@@ -836,6 +839,9 @@ whether this might be caused by unknown id attribute information.
 
 History
 =======
+
+1.2
+  Greg Vishnepolsky provided support for ``DSigCtx.setEnabledKeyData``.
 
 1.1
   for lxml 3.x

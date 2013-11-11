@@ -387,7 +387,15 @@ cdef class DSigCtx:
     rv = xmlSecDSigCtxEnableSignatureTransform(self.ctx, t.id)
     if rv < 0:
       raise Error("enableSignatureTransform failed", rv)
-    
+
+  def setEnabledKeyData(self, keydata_list):
+    cdef KeyData keydata
+    cdef xmlSecPtrListPtr enabled_list = &(self.ctx.keyInfoReadCtx.enabledKeyData)
+    xmlSecPtrListEmpty(enabled_list)
+    for keydata in keydata_list:
+        rv = xmlSecPtrListAdd(enabled_list, <xmlSecPtr> keydata.id)
+        if rv < 0:
+            raise Error("setEnabledKeyData failed")
 
 
 
