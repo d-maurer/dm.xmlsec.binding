@@ -7,6 +7,12 @@ cdef extern from 'cxmlsec.h':
         ctypedef unsigned char xmlChar
         ctypedef xmlChar const_xmlChar "const xmlChar"
 
+        ctypedef unsigned int xmlSecSize
+
+        # bytes (with length specified elsewhere)
+        ctypedef unsigned char xmlSecByte
+        ctypedef xmlSecByte const_xmlSecByte "const xmlSecByte"
+
         ctypedef void * xmlDocPtr
         ctypedef void * xmlNodePtr
 
@@ -67,6 +73,14 @@ cdef extern from 'cxmlsec.h':
         int xmlSecKeySetName(xmlSecKeyPtr, const_xmlChar *) nogil
         const_xmlChar * xmlSecKeyGetName(xmlSecKeyPtr) nogil
 
+        cdef struct _xmlSecBuffer:
+                unsigned char * data
+                size_t size
+##              size_t maxSize
+##              xmlSecAllocMode allocMode
+        
+        ctypedef _xmlSecBuffer *xmlSecBufferPtr
+
         cdef struct _xmlSecTransformKlass:
                 const_xmlChar * name
                 const_xmlChar * href
@@ -118,6 +132,52 @@ cdef extern from 'cxmlsec.h':
         xmlSecTransformId xmlSecTransformSha384Id
         xmlSecTransformId xmlSecTransformSha512Id
 
+#       transforms and transform contexts (partial)
+        ctypedef enum xmlSecTransformStatus:
+               xmlSecTransformStatusNone = 0 
+               xmlSecTransformStatusWorking
+               xmlSecTransformStatusFinished
+               xmlSecTransformStatusOk
+               xmlSecTransformStatusFail 
+
+        ctypedef enum xmlSecTransformOperation:
+                xmlSecTransformOperationNone = 0
+                xmlSecTransformOperationEncode
+                xmlSecTransformOperationDecode
+                xmlSecTransformOperationSign
+                xmlSecTransformOperationVerify
+                xmlSecTransformOperationEncrypt
+                xmlSecTransformOperationDecrypt
+
+        cdef struct _xmlSecTransformCtx:
+                xmlSecBufferPtr result
+                xmlSecTransformStatus status
+
+        ctypedef _xmlSecTransformCtx xmlSecTransformCtx
+        ctypedef _xmlSecTransformCtx *xmlSecTransformCtxPtr
+ 
+        cdef struct _xmlSecKeyReq:
+                pass
+
+        ctypedef _xmlSecKeyReq xmlSecKeyReq
+        ctypedef xmlSecKeyReq *xmlSecKeyReqPtr
+
+        cdef struct _xmlSecTransform:
+                xmlSecTransformOperation operation
+                xmlSecTransformStatus status
+
+        ctypedef _xmlSecTransform *xmlSecTransformPtr
+
+        xmlSecTransformPtr xmlSecTransformCtxCreateAndAppend(
+                 xmlSecTransformCtxPtr, xmlSecTransformId
+                 ) nogil
+        int xmlSecTransformSetKey(xmlSecTransformPtr, xmlSecKeyPtr) nogil
+        int xmlSecTransformSetKeyReq(xmlSecTransformPtr, xmlSecKeyReqPtr) nogil
+        int xmlSecTransformVerify(xmlSecTransformPtr, const_xmlSecByte*, xmlSecSize, xmlSecTransformCtxPtr) nogil
+        int xmlSecTransformCtxBinaryExecute(
+                 xmlSecTransformCtxPtr, const_xmlSecByte*, xmlSecSize
+                 ) nogil
+
         ctypedef void *xmlSecKeysMngrPtr
         xmlSecKeysMngrPtr xmlSecKeysMngrCreate() nogil
         void xmlSecKeysMngrDestroy(xmlSecKeysMngrPtr) nogil
@@ -132,21 +192,24 @@ cdef extern from 'cxmlsec.h':
 
         int xmlSecPtrListAdd(xmlSecPtrListPtr, xmlSecPtr) nogil
         int xmlSecPtrListEmpty(xmlSecPtrListPtr) nogil
- 
+
         cdef struct xmlSecKeyInfoCtx:
                 xmlSecPtrList enabledKeyData
+                xmlSecKeyReq keyReq
+
                 
         ctypedef enum xmlSecDSigStatus:
                 xmlSecDSigStatusUnknown = 0
                 xmlSecDSigStatusSucceeded = 1
                 xmlSecDSigStatusInvalid = 2
+
         struct _xmlSecDSigCtx:
 ##                void * userData
 ##                unsigned int flags
 ##                unsigned int flags2
                 xmlSecKeyInfoCtx keyInfoReadCtx
 ##                xmlSecKeyInfoCtx keyInfoWriteCtx
-##                xmlSecTransformCtx transformCtx
+                xmlSecTransformCtx transformCtx
 ##                xmlSecTransformUriType enabledReferenceUris
 ##                xmlSecPtrListPtr enabledReferenceTransforms
 ##                xmlSecTransformCtxPreExecuteCallback referencePreExecuteCallback
@@ -154,10 +217,10 @@ cdef extern from 'cxmlsec.h':
 ##                xmlSecTransformId defC14NMethodId
 ##                xmlSecTransformId defDigestMethodId
                 xmlSecKeyPtr signKey
-##                xmlSecTransformOperation operation
+                xmlSecTransformOperation operation
 ##                xmlSecBufferPtr result
                 xmlSecDSigStatus status
-##                xmlSecTransformPtr signMethod
+                xmlSecTransformPtr signMethod
 ##                xmlSecTransformPtr c14nMethod
 ##                xmlSecTransformPtr preSignMemBufMethod
 ##                xmlNodePtr signValueNode
@@ -173,14 +236,6 @@ cdef extern from 'cxmlsec.h':
         int xmlSecDSigCtxEnableReferenceTransform(xmlSecDSigCtxPtr, xmlSecTransformId) nogil
         int xmlSecDSigCtxEnableSignatureTransform(xmlSecDSigCtxPtr, xmlSecTransformId) nogil
         void xmlSecDSigCtxDestroy(xmlSecDSigCtxPtr) nogil
-
-        cdef struct _xmlSecBuffer:
-                unsigned char * data
-                size_t size
-##              size_t maxSize
-##              xmlSecAllocMode allocMode
-        
-        ctypedef _xmlSecBuffer *xmlSecBufferPtr
 
         unsigned int XMLSEC_ENC_RETURN_REPLACED_NODE
 
@@ -220,3 +275,5 @@ cdef extern from 'cxmlsec.h':
         int xmlSecEncCtxDecrypt(xmlSecEncCtxPtr, xmlNodePtr) nogil
 
         void xmlSecErrorsSetCallback(void *callback) nogil
+
+        int xmlSecKeyMatch(xmlSecKeyPtr, const_xmlChar *, xmlSecKeyReqPtr)

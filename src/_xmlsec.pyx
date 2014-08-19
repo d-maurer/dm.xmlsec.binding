@@ -368,6 +368,70 @@ cdef class DSigCtx:
     if self.ctx.status != xmlSecDSigStatusSucceeded:
       raise VerificationError("signature verification failed", self.ctx.status)
 
+  def sign_binary(self, bytes data not None, Transform algorithm not None):
+    """sign binary data *data* with *algorithm* and return the signature.
+
+    You must already have set the context's `signKey` (its value must
+    be compatible with *algorithm* and signature creation).
+    """
+    cdef xmlSecDSigCtxPtr ctx = self.ctx
+    ctx.operation = xmlSecTransformOperationSign
+    self._binary(ctx, data, algorithm)
+    if ctx.transformCtx.status != xmlSecTransformStatusFinished:
+      raise Error("signing failed with transform status", ctx.transformCtx.status)
+    res = ctx.transformCtx.result
+    return <bytes> (<char*>res.data)[:res.size]
+
+  def verify_binary(self, bytes data not None, Transform algorithm not None, bytes signature not None):
+    """Verify *signature* for *data* with *algorithm*.
+
+    You must already have set the context's `signKey` (its value must
+    be compatible with *algorithm* and signature verification).
+    """
+    cdef xmlSecDSigCtxPtr ctx = self.ctx
+    cdef int rv
+    ctx.operation = xmlSecTransformOperationVerify
+    self._binary(ctx, data, algorithm)
+    rv = xmlSecTransformVerify(
+      ctx.signMethod,
+      <const_xmlSecByte *><char *> signature,
+      len(signature),
+      &ctx.transformCtx
+      )
+    if rv != 0: raise Error("Verification failed with return value", rv)
+    if ctx.signMethod.status != xmlSecTransformStatusOk:
+      raise VerificationError("Signature verification failed")
+
+  cdef _binary(self, xmlSecDSigCtxPtr ctx, bytes data, Transform algorithm):
+    """common helper used for `sign_binary` and `verify_binary`."""
+    cdef int rv
+    
+    if ctx.signMethod != NULL:
+      raise Error("Signature context already used; it is designed for one use only")
+    ctx.signMethod = xmlSecTransformCtxCreateAndAppend(
+      &ctx.transformCtx,
+      algorithm.id
+      )
+    if ctx.signMethod == NULL:
+      raise Error("Could not create signature transform")
+    ctx.signMethod.operation = ctx.operation
+    if ctx.signKey == NULL:
+      raise Error("signKey not yet set")
+    xmlSecTransformSetKeyReq(ctx.signMethod, &ctx.keyInfoReadCtx.keyReq)
+    rv = xmlSecKeyMatch(ctx.signKey, NULL, &ctx.keyInfoReadCtx.keyReq)
+    if rv != 1: raise Error("inappropriate key type")
+    rv = xmlSecTransformSetKey(ctx.signMethod, ctx.signKey)
+    if rv != 0: raise Error("`xmlSecTransfromSetKey` failed", rv)
+    rv = xmlSecTransformCtxBinaryExecute(
+      &ctx.transformCtx,
+      <const_xmlSecByte *><char *> data,
+      len(data)
+      )
+    if rv != 0: 
+      raise Error("transformation failed error value", rv)
+    if ctx.transformCtx.status != xmlSecTransformStatusFinished:
+      raise Error("transformation failed with status", ctx.transformCtx.status)
+
   def enableReferenceTransform(self, Transform t):
     """enable use of *t* as reference transform.
 

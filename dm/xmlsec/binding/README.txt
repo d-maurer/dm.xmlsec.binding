@@ -532,6 +532,43 @@ Error: ('verifying failed with return value', -1)
 >>> verify_file_with_keysmngr(BASEDIR + "verify4-bad-res.xml", mngr)
 
 
+Signing and verification of binary data
+---------------------------------------
+
+This use case (which I need for SAML2 support) is not directly
+supported by ``libxmlsec``. Unlike other examples, the following
+example has therefore no correspondence with an example for
+``libxmlsec``.
+
+>>> def sign_binary(data, algorithm, key_file):
+...     """sign binary *data* with *algorithm*, key in *key_file, and return signature."""
+...     dsigCtx = xmlsec.DSigCtx()
+...     dsigCtx.signKey = xmlsec.Key.load(key_file, xmlsec.KeyDataFormatPem, None)
+...     return dsigCtx.sign_binary(data, algorithm)
+... 
+>>> def verify_binary(data, algorithm, key_file, signature):
+...     """verify *signature* for *data* with *algorithm, key in *key_file*."""
+...     dsigCtx = xmlsec.DSigCtx()
+...     dsigCtx.signKey = xmlsec.Key.load(key_file, xmlsec.KeyDataFormatPem, None)
+...     dsigCtx.verify_binary(data, algorithm, signature)
+... 
+>>> bin_data = "123"
+>>> 
+>>> # sign
+... # Note: you cannot use a public rsa key for signing.
+... signature = sign_binary(bin_data, xmlsec.TransformRsaSha1, BASEDIR + "rsakey.pem")
+>>> 
+>>> # verify
+... # Note: you cannot use a private rsa key for verification.
+... verify_binary(bin_data, xmlsec.TransformRsaSha1, BASEDIR + "rsapub.pem", signature)
+>>> 
+>>> # failing verification
+... verify_binary(bin_data + "1", xmlsec.TransformRsaSha1, BASEDIR + "rsapub.pem", signature)
+Traceback (most recent call last):
+  ...
+dm.xmlsec.binding._xmlsec.VerificationError: Signature verification failed
+
+
 Encrypting binary data with a template file
 -------------------------------------------
 
@@ -765,6 +802,8 @@ customize it. The following example shows how:
 ...     if errorObject != "unknown": info.append("obj=" + errorObject)
 ...     if errorSubject != "unknown": info.append("subject=" + errorSubject)
 ...     if msg.strip(): info.append("msg=" + msg)
+...     # see `xmlsec`s `errors.h`for the meaning
+...     if reason != 1: info.append("errno=%d" % reason)
 ...     if info:
 ...         print "%s:%d(%s)" % (filename, line, func), " ".join(info)
 ... 
@@ -799,6 +838,15 @@ in the error context.
 Note that the numbers in the error output are source code line numbers.
 They depend on the ``xmlsec`` version you have installed and
 consequently can be different when you try this code.
+
+If the error information contains ``errno`` (``reason`` at the base
+interface), then these numbers refer to the error numbers defined
+in the ``errors.h`` of ``libxmlsec``. As this file is a prerequisite
+for the installation of this package, it is likely installed on your system
+(unlike the ``libxmlsec`` sources). You may be able to guess from the
+error name what went wrong, which sometimes avoids downloading
+the full sources.
+
 
 
 Notes
@@ -839,6 +887,9 @@ whether this might be caused by unknown id attribute information.
 
 History
 =======
+
+1.3
+  Support for digital signatures for binary data
 
 1.2
   Greg Vishnepolsky provided support for ``DSigCtx.setEnabledKeyData``.
