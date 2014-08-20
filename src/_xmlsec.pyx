@@ -1,4 +1,5 @@
 #cython: embedsignature=True
+# Copyright (C) 2012-2014 by Dr. Dieter Maurer <dieter@handshake.de>; see 'LICENSE.txt' for details
 """Cython generated binding to `xmlsec`.
 
 We probably should have `with nogil` for all `xmlsec` functions working
@@ -149,6 +150,9 @@ cdef class Transform:
 
   property href:
     def __get__(self): return xmlChar2py(<xmlChar*>self.id.href)
+
+  property usage:
+    def __get__(self): return self.id.usage
 
 
 cdef class Key:
@@ -368,7 +372,7 @@ cdef class DSigCtx:
     if self.ctx.status != xmlSecDSigStatusSucceeded:
       raise VerificationError("signature verification failed", self.ctx.status)
 
-  def sign_binary(self, bytes data not None, Transform algorithm not None):
+  def signBinary(self, bytes data not None, Transform algorithm not None):
     """sign binary data *data* with *algorithm* and return the signature.
 
     You must already have set the context's `signKey` (its value must
@@ -382,7 +386,7 @@ cdef class DSigCtx:
     res = ctx.transformCtx.result
     return <bytes> (<char*>res.data)[:res.size]
 
-  def verify_binary(self, bytes data not None, Transform algorithm not None, bytes signature not None):
+  def verifyBinary(self, bytes data not None, Transform algorithm not None, bytes signature not None):
     """Verify *signature* for *data* with *algorithm*.
 
     You must already have set the context's `signKey` (its value must
@@ -405,7 +409,8 @@ cdef class DSigCtx:
   cdef _binary(self, xmlSecDSigCtxPtr ctx, bytes data, Transform algorithm):
     """common helper used for `sign_binary` and `verify_binary`."""
     cdef int rv
-    
+    if not (algorithm.id.usage & xmlSecTransformUsageSignatureMethod):
+      raise Error("improper signature algorithm")
     if ctx.signMethod != NULL:
       raise Error("Signature context already used; it is designed for one use only")
     ctx.signMethod = xmlSecTransformCtxCreateAndAppend(
@@ -776,6 +781,14 @@ KeyDataTypeSession = xmlSecKeyDataTypeSession
 KeyDataTypePermanent = xmlSecKeyDataTypePermanent
 KeyDataTypeTrusted = xmlSecKeyDataTypeTrusted
 KeyDataTypeAny = xmlSecKeyDataTypeAny
+
+TransformUsageUnknown = xmlSecTransformUsageUnknown
+TransformUsageDSigTransform = xmlSecTransformUsageDSigTransform
+TransformUsageC14NMethod = xmlSecTransformUsageC14NMethod
+TransformUsageDigestMethod = xmlSecTransformUsageDigestMethod
+TransformUsageSignatureMethod = xmlSecTransformUsageSignatureMethod
+TransformUsageEncryptionMethod = xmlSecTransformUsageEncryptionMethod
+TransformUsageAny = xmlSecTransformUsageAny
 
 TypeEncContent = "http://www.w3.org/2001/04/xmlenc#Content"
 TypeEncElement = "http://www.w3.org/2001/04/xmlenc#Element"

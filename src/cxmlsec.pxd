@@ -81,9 +81,20 @@ cdef extern from 'cxmlsec.h':
         
         ctypedef _xmlSecBuffer *xmlSecBufferPtr
 
+        ctypedef unsigned int xmlSecTransformUsage
+        cdef enum:
+                xmlSecTransformUsageUnknown=0x0000
+                xmlSecTransformUsageDSigTransform=0x0001
+                xmlSecTransformUsageC14NMethod=0x0002
+                xmlSecTransformUsageDigestMethod=0x0004
+                xmlSecTransformUsageSignatureMethod=0x0008
+                xmlSecTransformUsageEncryptionMethod=0x0010
+                xmlSecTransformUsageAny=0xFFFF
+
         cdef struct _xmlSecTransformKlass:
                 const_xmlChar * name
                 const_xmlChar * href
+                xmlSecTransformUsage usage
                 
         ctypedef _xmlSecTransformKlass *xmlSecTransformId
         xmlSecTransformId xmlSecTransformInclC14NId

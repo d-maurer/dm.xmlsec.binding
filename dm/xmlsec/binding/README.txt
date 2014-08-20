@@ -544,13 +544,13 @@ example has therefore no correspondence with an example for
 ...     """sign binary *data* with *algorithm*, key in *key_file, and return signature."""
 ...     dsigCtx = xmlsec.DSigCtx()
 ...     dsigCtx.signKey = xmlsec.Key.load(key_file, xmlsec.KeyDataFormatPem, None)
-...     return dsigCtx.sign_binary(data, algorithm)
+...     return dsigCtx.signBinary(data, algorithm)
 ... 
 >>> def verify_binary(data, algorithm, key_file, signature):
 ...     """verify *signature* for *data* with *algorithm, key in *key_file*."""
 ...     dsigCtx = xmlsec.DSigCtx()
 ...     dsigCtx.signKey = xmlsec.Key.load(key_file, xmlsec.KeyDataFormatPem, None)
-...     dsigCtx.verify_binary(data, algorithm, signature)
+...     dsigCtx.verifyBinary(data, algorithm, signature)
 ... 
 >>> bin_data = "123"
 >>> 
@@ -889,7 +889,9 @@ History
 =======
 
 1.3
-  Support for digital signatures for binary data
+  Support for digital signatures of binary data
+
+  Improved transform support
 
 1.2
   Greg Vishnepolsky provided support for ``DSigCtx.setEnabledKeyData``.
