@@ -1,4 +1,4 @@
-# Copyright (C) 2012 by Dr. Dieter Maurer <dieter@handshake.de>; see 'LICENSE.txt' for details
+# Copyright (C) 2012-2014 by Dr. Dieter Maurer <dieter@handshake.de>; see 'LICENSE.txt' for details
 from _xmlsec import *
 
 def dsig(tag):
@@ -15,5 +15,8 @@ def findNode(node, tag):
   if node.tag == tag: return node
   return node.find(".//" + tag)
 
-# generate `__all__` to get the class definitions in `_xmlsec` included
+transforms = [v for v in globals().itervalues if isinstance(v, Transform)]
+transformByHref = dict((t.href, t) for t in transforms)
+
+# generate `__all__` to get the definitions in `_xmlsec` included
 __all__ = list(k for k in globals().iterkeys() if not k.startswith("_"))
