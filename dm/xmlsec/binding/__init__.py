@@ -15,7 +15,7 @@ def findNode(node, tag):
   if node.tag == tag: return node
   return node.find(".//" + tag)
 
-transforms = [v for v in globals().itervalues if isinstance(v, Transform)]
+transforms = [v for v in globals().values() if isinstance(v, Transform)]
 transformByHref = dict((t.href, t) for t in transforms)
 
 # generate `__all__` to get the definitions in `_xmlsec` included
