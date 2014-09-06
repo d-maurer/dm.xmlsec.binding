@@ -74,7 +74,7 @@ def Signature(c14nMethod, signMethod, id=None, nsPrefix=None):
              )
   mkse(info, dsig("SignatureMethod"), Algorithm=signMethod.href)
   attrib = id and dict(Id=id) or None
-  nsmap = nsPrefix and dict(nsPrefix=DSignNs) or DSigNsMap
+  nsmap = nsPrefix and dict(nsPrefix=DSigNs) or DSigNsMap
   return _Signature(info, mke(dsig("SignatureValue")), attrib=attrib, nsmap=nsmap)
 
 
