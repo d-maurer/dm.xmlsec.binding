@@ -1,3 +1,5 @@
+LXML_REQUIREMENT = "lxml>=3.0"
+
 import sys, commands
 from os.path import abspath, dirname, join, exists
 from os import environ
@@ -117,7 +119,6 @@ extract_libs(xmlsec1_libs)
 
 
 def get_lxml_include_dirs():
-  from os import environ
   lxml_home = environ.get("LXML_HOME")
   if lxml_home is None:
     # `LXML_HOME` not specified -- derive from installed `lxml`
@@ -126,7 +127,8 @@ def get_lxml_include_dirs():
   else:
     if not exists(lxml_home):
       sys.exit("The directory specified via envvar `LXML_HOME` does not exist")
-    lxml_home = join(lxml_home, "src", "lxml")
+    if exists(join(lxml_home, "src")): lxml_home = join(lxml_home, "src")
+    if exists(join(lxml_home, "lxml")): lxml_home = join(lxml_home, "lxml")
   # check that it contains what is needed
   lxml_include = join(lxml_home, "includes")
   if not (exists(join(lxml_home, "etreepublic.pxd")) \
@@ -134,13 +136,36 @@ def get_lxml_include_dirs():
     sys.exit("The lxml installation lacks the mandatory `etreepublic.pxd`. You may need to install `lxml` manually or set envvar `LXML_HOME` to an `lxml` installation with `etreepublic.pxd`")
   return [lxml_home, lxml_include]
 
+# to work around a `buildout` bug (not honoring version pinning
+#   for `setup_requires`), we try here to avoid `setup_requires`.
+#   If envvar `LXML_HOME` is defined, we hope (i.e. no check) that
+#   the `lxml` distribution it points to is compatible with the
+#   `lxml` we will be finally using.
+#   Otherwise, we let `pkg_resources` find and activate an
+#   appropriate distribution.
+SETUP_REQUIREMENTS = LXML_REQUIREMENT,
+
+if environ.get("LXML_HOME"): SETUP_REQUIREMENTS = ()
+else:
+  try: from pkg_resources import require, DistributionNotFound, VersionConflict
+  except ImportError: pass # should not happen
+  else:
+    try:
+      for r in require(LXML_REQUIREMENT): r.activate()
+    except VersionConflict:
+      sys.exit("The available `lxml` version is incompatible with the version requirement: %s" % LXML_REQUIREMENT)
+    except DistributionNotFound:
+      pass # let setup install a version
+    else: SETUP_REQUIREMENTS = ()
+
+
 
 setupArgs = dict(
     include_package_data=True,
-    setup_requires=["lxml>=3.0",], # see "http://mail.python.org/pipermail/distutils-sig/2006-October/006749.html" in case of problems
+    setup_requires=SETUP_REQUIREMENTS, # see "http://mail.python.org/pipermail/distutils-sig/2006-October/006749.html" in case of problems
     install_requires=[
       'setuptools', # to make "buildout" happy
-      "lxml>=3.0",
+      LXML_REQUIREMENT,
     ] ,
     namespace_packages=['dm', 'dm.xmlsec',
                         ],
@@ -163,8 +188,8 @@ setup(name='dm.xmlsec.binding',
       long_description=pread('README.txt'),
       classifiers=[
         #'Development Status :: 3 - Alpha',
-        'Development Status :: 4 - Beta',
-        #'Development Status :: 5 - Production/Stable',
+        #'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',

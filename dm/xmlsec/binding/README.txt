@@ -888,6 +888,10 @@ whether this might be caused by unknown id attribute information.
 History
 =======
 
+1.3.2
+   Workaround for ``buildout`` problem (not honoring version pinning
+   for ``setup_requires`` dependencies).
+
 1.3
   Support for digital signatures of binary data
 
