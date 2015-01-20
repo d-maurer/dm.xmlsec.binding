@@ -1,4 +1,4 @@
-LXML_REQUIREMENT = "lxml>=3.0"
+LXML_REQUIREMENT = "lxml>=2.0,<=2.9999"
 
 import sys, commands
 from os.path import abspath, dirname, join, exists
@@ -119,6 +119,7 @@ extract_libs(xmlsec1_libs)
 
 
 def get_lxml_include_dirs():
+  from os import environ
   lxml_home = environ.get("LXML_HOME")
   if lxml_home is None:
     # `LXML_HOME` not specified -- derive from installed `lxml`
@@ -130,7 +131,7 @@ def get_lxml_include_dirs():
     if exists(join(lxml_home, "src")): lxml_home = join(lxml_home, "src")
     if exists(join(lxml_home, "lxml")): lxml_home = join(lxml_home, "lxml")
   # check that it contains what is needed
-  lxml_include = join(lxml_home, "includes")
+  lxml_include = join(lxml_home, "include")
   if not (exists(join(lxml_home, "etreepublic.pxd")) \
          or exists(join(lxml_include, "etreepublic.pxd"))):
     sys.exit("The lxml installation lacks the mandatory `etreepublic.pxd`. You may need to install `lxml` manually or set envvar `LXML_HOME` to an `lxml` installation with `etreepublic.pxd`")
@@ -184,7 +185,7 @@ def pread(filename, base=pd): return open(join(base, filename)).read().rstrip()
 
 setup(name='dm.xmlsec.binding',
       version=pread('VERSION.txt').split('\n')[0],
-      description="Cython/lxml based binding for the XML security library -- for lxml 3.x",
+      description="Cython/lxml based binding for the XML security library -- for lxml 2.x",
       long_description=pread('README.txt'),
       classifiers=[
         #'Development Status :: 3 - Alpha',
