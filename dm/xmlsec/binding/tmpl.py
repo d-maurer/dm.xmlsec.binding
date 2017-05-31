@@ -74,7 +74,7 @@ def Signature(c14nMethod, signMethod, id=None, nsPrefix=None):
              )
   mkse(info, dsig("SignatureMethod"), Algorithm=signMethod.href)
   attrib = id and dict(Id=id) or None
-  nsmap = nsPrefix and dict(nsPrefix=DSigNs) or DSigNsMap
+  nsmap = nsPrefix and {nsPrefix:DSigNs} or DSigNsMap
   return _Signature(info, mke(dsig("SignatureValue")), attrib=attrib, nsmap=nsmap)
 
 
@@ -334,7 +334,7 @@ def _EncType_(tag, encMethod=None, id=None, type=None, mimeType=None, encoding=N
   if mimeType: attrib["MimeType"] = mimeTpye
   if encoding: attrib["Encoding"] = encoding
   if recipient: attrib["Recipient"] = recipient
-  nsmap = nsPrefix and dict(nsPrefix=EncNs) or EncNsMap
+  nsmap = nsPrefix and {nsPrefix:EncNs} or EncNsMap
   et = mke(enc(tag), attrib=attrib, nsmap=nsmap)
   if encMethod:
     mkse(et, enc("EncryptionMethod"), Algorithm=encMethod.href)
