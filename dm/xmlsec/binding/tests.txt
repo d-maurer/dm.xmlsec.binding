@@ -9,7 +9,7 @@ This is not a test case but common initialization for the following
 tests.
 
 >>> import dm.xmlsec.binding as xmlsec
->>> xmlsec.initialize()
+>>> # xmlsec.initialize() # initialization already happened (not sure that this is always the case)
 >>> from os.path import dirname, basename
 >>> from lxml.etree import tostring, parse
 >>> BASEDIR = dirname(xmlsec.__file__) + "/resources/"

@@ -888,6 +888,14 @@ whether this might be caused by unknown id attribute information.
 History
 =======
 
+1.3.4
+   Suppressed `xmlsec` initialization in `tests.txt`: Apparently, newer
+   versions of `libxmlsec` check against repeated initialization, which
+   let the tests fail. For this to work, the `README.txt` tests must
+   come before those in `tests.txt`. I am not sure that this is guaranteed;
+   potentially, a more elaborate technique to avoid repeated initialization
+   is necessary.
+
 1.3.3
    Applied patch provided by Robert Frije to make the `nsPrefix` template
    parameter work as expected.
