@@ -18,5 +18,8 @@ def findNode(node, tag):
 transforms = [v for v in globals().values() if isinstance(v, Transform)]
 transformByHref = dict((t.href, t) for t in transforms)
 
+# fix spelling bug reported by Chris Foresman
+addIds = addIDs
+
 # generate `__all__` to get the definitions in `_xmlsec` included
 __all__ = list(k for k in globals().iterkeys() if not k.startswith("_"))
