@@ -1,5 +1,5 @@
 #cython: embedsignature=True
-# Copyright (C) 2012-2014 by Dr. Dieter Maurer <dieter@handshake.de>; see 'LICENSE.txt' for details
+# Copyright (C) 2012-2018 by Dr. Dieter Maurer <dieter@handshake.de>; see 'LICENSE.txt' for details
 """Cython generated binding to `xmlsec`.
 
 We probably should have `with nogil` for all `xmlsec` functions working
@@ -15,7 +15,7 @@ from cxmlsec cimport *
 from etreepublic cimport import_lxml__etree, _Document, _Element, pyunicode, \
      elementFactory
 from tree cimport xmlDocCopyNode, xmlFreeNode, xmlNode, xmlDoc, \
-     xmlDocGetRootElement
+     xmlDocGetRootElement, xmlReplaceNode
 
 cdef extern from "stdio.h":
   ctypedef struct FILE
@@ -131,6 +131,8 @@ def addIDs(_Element node, ids):
   retain = []
   cdef const_xmlChar **lst
   cdef int i, n = len(ids)
+  cdef xmlNode *c_node = node._c_node
+  cdef xmlDoc *doc = node._doc._c_doc
   lst = <const_xmlChar**> stdlib.malloc(sizeof(xmlChar*) * (n + 1))
   if lst == NULL: raise MemoryError
   try:
@@ -138,7 +140,7 @@ def addIDs(_Element node, ids):
       lst[i] = <const_xmlChar*> py2xmlChar(ids[i], retain)
     lst[n] = NULL
     with nogil:
-      xmlSecAddIDs(node._doc._c_doc, node._c_node, lst)
+      xmlSecAddIDs(doc, c_node, lst)
   finally: stdlib.free(lst)
 
 
@@ -167,7 +169,8 @@ cdef class Key:
   def load(cls, filename, key_data_format, password=None):
     """load PKI key from file."""
     cdef xmlSecKeyPtr key
-    cdef char *c_filename = filename, *c_password = string_or_null(password)
+    cdef char *c_filename = filename
+    cdef char *c_password = string_or_null(password)
     cdef xmlSecKeyDataFormat c_key_data_format = key_data_format
     with nogil:
       key = xmlSecCryptoAppKeyLoad(c_filename, c_key_data_format, c_password, NULL, NULL)
@@ -530,31 +533,45 @@ cdef class EncCtx:
     cdef xmlSecEncCtxPtr ctx = self.ctx
     cdef int rv
     cdef xmlNode *c_node = tmpl._c_node
+    cdef xmlNode *l_node = node._c_node
+    cdef xmlNode *enc_node = l_node
+    cdef xmlDoc  *doc = node._doc._c_doc
     et = tmpl.get("Type")
     if et not in (TypeEncElement,  TypeEncContent):
       raise Error("unsupported `Type` for `encryptXML` (must be `%s` or `%s`)" % (TypeEncElement, TypeEncContent), et)
     # `xmlSecEncCtxEncrypt` expects *tmpl* to belong to the document of *node*
     #    if this is not the case, we copy the `libxml2` subtree there.
-    if tmpl._doc._c_doc != node._doc._c_doc:
+    if tmpl._doc._c_doc != doc:
       with nogil:
-        c_node = xmlDocCopyNode(c_node, node._doc._c_doc, 1) # recursive
+        c_node = xmlDocCopyNode(c_node, doc, 1) # recursive
       if c_node == NULL:
         raise MemoryError("could not copy template tree")
     # `xmlSecEncCtxXmlEncrypt` will replace the subtree rooted
     #   at `node._c_node` or its children by an extended subtree
-    #   rooted at "c_node".
-    #   We set `XMLSEC_ENC_RETURN_REPLACED_NODE` to prevent deallocation
-    #   of the replaced node. This is important as `node` is still
-    #   referencing it
-    ctx.flags = XMLSEC_ENC_RETURN_REPLACED_NODE
+    #   rooted at "c_node". The code below ensures that this
+    #   does not confuse `lxml`
+    if et == TypeEncElement:
+      # we prevent the deletion of the replaced node - this is okay, as
+      #  "lxml" still helds a reference to it and it is deleted
+      #  when the reference is released
+      ctx.flags = XMLSEC_ENC_RETURN_REPLACED_NODE
+    else:
+      # this means `et == TypeEncContent`
+      #   `xmlSecEncCtxXmlEncrypt` will replace the children of `enc_node`
+      #   As we do not yet know how to safely release the replaced children,
+      #   we copy the node and let it modify the copy
+      with nogil:
+        enc_node = xmlDocCopyNode(enc_node, doc, 1) # recursive
+        xmlReplaceNode(l_node, enc_node) # `node._c_node` is now "free"
     with nogil:
-      rv = xmlSecEncCtxXmlEncrypt(ctx, c_node, node._c_node)
-    # release the replaced nodes in a way safe for `lxml`
-    cdef xmlNode *n = <xmlNode*> ctx.replacedNodeList, *nn
-    while n != NULL:
-      nn = n.next; lxml_safe_dealloc(node._doc, n); n = nn
+      rv = xmlSecEncCtxXmlEncrypt(ctx, c_node, enc_node)
     ctx.replacedNodeList = NULL
     if rv < 0:
+      if et != TypeEncElement:
+        # undo our tree modification
+        with nogil:
+          xmlReplaceNode(enc_node, l_node)
+          xmlFreeNode(enc_node)
       if c_node._private == NULL:
         # tmplate tree was copied; free it again.
         # Note: if the problem happened late (e.g. a `MemoryError`)
@@ -596,18 +613,17 @@ cdef class EncCtx:
     `getroottree()` on the result to obtain the decrypted result tree.
     """
     cdef xmlSecEncCtxPtr ctx = self.ctx
+    cdef xmlNode *enc_node = node._c_node
     cdef int rv
     cdef bint decrypt_content = node.get("Type") == TypeEncContent 
     # must provide sufficient context to find the decrypted node
     parent = node.getparent()
     if parent is not None: enc_index = parent.index(node)
+    # prevent `xmlSecEncCtxDecrypt` to release the encrypted node
+    #  this is important as `lxml` helds a reference to it.
     ctx.flags = XMLSEC_ENC_RETURN_REPLACED_NODE
     with nogil:
-      rv = xmlSecEncCtxDecrypt(ctx, node._c_node)
-    # release the replaced nodes in a way safe for `lxml`
-    cdef xmlNode *n = <xmlNode*> ctx.replacedNodeList, *nn
-    while n != NULL:
-      nn = n.next; lxml_safe_dealloc(node._doc, n); n = nn
+      rv = xmlSecEncCtxDecrypt(ctx, enc_node)
     ctx.replacedNodeList = NULL
     if rv < 0:
       raise Error("failed to decrypt", rv)
@@ -625,17 +641,6 @@ cdef class EncCtx:
     if c_root == NULL:
       raise Error("decryption resulted in a non well formed document")
     return elementFactory(node._doc, c_root)
-
-
-cdef int lxml_safe_dealloc(_Document doc, xmlNode* c_node) except -1:
-  # we let `lxml` get rid of the subtree by wrapping *c_node* into a
-  #  proxy and then releasing it again.
-  # Note: if referenced by `lxml`, nodes inside the subtree may lack
-  #  necessary namespace daclarations. Hopefully, I can
-  #  convince the `lxml` maintainers to provide a really safe
-  #  `lxml_safe_unlink` function
-  elementFactory(doc, c_node)
-  return 0
 
 
 

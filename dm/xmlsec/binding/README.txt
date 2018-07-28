@@ -613,7 +613,7 @@ XML Security Library example: Simple encryption template file for encrypt1 examp
 Encrypting xml file with a dynamically created template
 -------------------------------------------------------
 
->>> def encrypt_file_create_template(xml_file, key_file):
+>>> def encrypt_file_create_template(xml_file, key_file, type):
 ...     """encrypt *xml_file* with key in *key_file*, generating the template.
 ... 
 ...     *xml_file* contains an XML file content of which should be encrypted.
@@ -625,7 +625,7 @@ Encrypting xml file with a dynamically created template
 ...          fromstring, XML
 ...     from dm.xmlsec.binding.tmpl import EncData
 ...     doc = parse(xml_file)
-...     encData = EncData(xmlsec.TransformDes3Cbc, type=xmlsec.TypeEncElement)
+...     encData = EncData(xmlsec.TransformDes3Cbc, type=type)
 ...     encData.ensureCipherValue() # target for encryption result
 ...     keyInfo = encData.ensureKeyInfo()
 ...     encCtx = xmlsec.EncCtx()
@@ -636,14 +636,24 @@ Encrypting xml file with a dynamically created template
 ...     ed = encCtx.encryptXml(encData, doc.getroot())
 ...     return tostring(ed.getroottree())
 ... 
->>> encrypted_file = encrypt_file_create_template(
+>>> encrypted_file_element = encrypt_file_create_template(
 ...     BASEDIR + "encrypt2-doc.xml",
-...     BASEDIR + "deskey.bin"
+...     BASEDIR + "deskey.bin",
+...     xmlsec.TypeEncElement,
 ...     )
->>> print encrypted_file
+>>> print encrypted_file_element
 <!-- 
 XML Security Library example: Original XML doc file before encryption (encrypt2 example). 
 --><EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#" Type="http://www.w3.org/2001/04/xmlenc#Element"><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#tripledes-cbc"/><ns0:KeyInfo xmlns:ns0="http://www.w3.org/2000/09/xmldsig#"/><CipherData><CipherValue>...</CipherValue></CipherData></EncryptedData>
+>>> encrypted_file_content = encrypt_file_create_template(
+...     BASEDIR + "encrypt2-doc.xml",
+...     BASEDIR + "deskey.bin",
+...     xmlsec.TypeEncContent,
+...     )
+>>> print encrypted_file_content
+<!-- 
+XML Security Library example: Original XML doc file before encryption (encrypt2 example). 
+--><Envelope xmlns="urn:envelope"><EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#" Type="http://www.w3.org/2001/04/xmlenc#Content"><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#tripledes-cbc"/><ns0:KeyInfo xmlns:ns0="http://www.w3.org/2000/09/xmldsig#"/><CipherData><CipherValue>...</CipherValue></CipherData></EncryptedData></Envelope>
 
 
 
@@ -776,9 +786,27 @@ Big secret
 XML Security Library example: Encrypted XML file (encrypt2 example). 
 --><Envelope xmlns="urn:envelope">
   <Data>
+   Hello, World!
+  </Data>
+</Envelope>
+>>> from StringIO import StringIO
+>>> print decrypt_file_with_keys_manager(mngr, StringIO(encrypted_file_element))
+<!-- 
+XML Security Library example: Original XML doc file before encryption (encrypt2 example).
+--><Envelope xmlns="urn:envelope">
+  <Data>
 	Hello, World!
   </Data>
 </Envelope>
+>>> print decrypt_file_with_keys_manager(mngr, StringIO(encrypted_file_content))
+<!-- 
+XML Security Library example: Original XML doc file before encryption (encrypt2 example).
+--><Envelope xmlns="urn:envelope">
+  <Data>
+	Hello, World!
+  </Data>
+</Envelope>
+
 
 
 Obtaining error information
@@ -887,6 +915,10 @@ whether this might be caused by unknown id attribute information.
 
 History
 =======
+
+1.3.6
+   Fix a bug reported by Jorge Romero: encrypt content failed if the first
+   content node was not an element.
 
 1.3.4
    Suppressed `xmlsec` initialization in `tests.txt`: Apparently, newer
