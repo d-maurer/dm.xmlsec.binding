@@ -916,6 +916,9 @@ whether this might be caused by unknown id attribute information.
 History
 =======
 
+1.3.7
+   Fix `EncData` template bug reported by Jorge Romero.
+
 1.3.6
    Fix a bug reported by Jorge Romero: encrypt content failed if the first
    content node was not an element.

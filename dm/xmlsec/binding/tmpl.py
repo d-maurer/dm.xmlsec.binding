@@ -311,7 +311,7 @@ class _EncKey(_EncType):
   def addDataReference(self, uri=None):
     rl = self.find(enc("ReferenceList"))
     if rl is None:
-      rl = mke(self, enc("ReferenceList"))
+      rl = mke(enc("ReferenceList"))
       self.insert(0, rl)
     return mkse(rl, enc("DataReference"),
                       attrib=uri and dict(URI=uri) or None
@@ -320,7 +320,7 @@ class _EncKey(_EncType):
   def addKeyReference(self, uri=None):
     rl = self.find(enc("ReferenceList"))
     if rl is None:
-      rl = mke(self, enc("ReferenceList"))
+      rl = mke(enc("ReferenceList"))
       self.insert(0, rl)
     return mkse(rl, enc("KeyReference"),
                       attrib=uri and dict(URI=uri) or None
