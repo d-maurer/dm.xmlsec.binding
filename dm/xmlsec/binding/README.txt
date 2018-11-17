@@ -202,12 +202,23 @@ Some imports used in our examples
 
 >>> from os.path import dirname, basename
 >>> from lxml.etree import tostring
+>>> from sys import version_info
 
 
 We also set up some constants for the examples below.
 
 >>> BASEDIR = dirname(xmlsec.__file__) + "/resources/"
 
+
+The following are helpers to hide differences between
+Python 2 and Python 3.
+
+>>> def to_text(b):
+...   return b.decode("utf-8") if version_info.major > 2 else b
+...
+>>> try: from io import BytesIO
+... except ImportError: from StringIO import StringIO as BytesIO
+...
 
 
 Signing an XML file
@@ -243,7 +254,7 @@ a template. Below is a function which signs such a template.
 ...     return tostring(doc)
 ... 
 >>> signed_file = sign_file(BASEDIR + "sign1-tmpl.xml", BASEDIR + "rsakey.pem")
->>> print signed_file
+>>> print(to_text(signed_file))
 <!-- 
 XML Security Library example: Simple signature template file for sign1 example. 
 --><Envelope xmlns="urn:envelope">
@@ -327,7 +338,7 @@ or encryption template.
 ...     dsigCtx.sign(signature)
 ...     return tostring(doc)
 ... 
->>> print sign_file_create_template(BASEDIR + "sign2-doc.xml", BASEDIR + "rsakey.pem")
+>>> print(to_text(sign_file_create_template(BASEDIR + "sign2-doc.xml", BASEDIR + "rsakey.pem")))
 <!-- 
 XML Security Library example: Original XML doc file for sign2 example. 
 --><Envelope xmlns="urn:envelope">
@@ -380,7 +391,7 @@ Signing with an X509 certificate
 ...     dsigCtx.sign(signature)
 ...     return tostring(doc)
 ... 
->>> print sign_file_with_certificate(BASEDIR + "sign3-doc.xml", BASEDIR + "rsakey.pem", BASEDIR + "rsacert.pem")
+>>> print(to_text(sign_file_with_certificate(BASEDIR + "sign3-doc.xml", BASEDIR + "rsakey.pem", BASEDIR + "rsacert.pem")))
 <!-- 
 XML Security Library example: Original XML doc file for sign3 example. 
 --><Envelope xmlns="urn:envelope">
@@ -443,8 +454,7 @@ Verifying a signature with a single key
 ...     dsigCtx.signKey = signKey
 ...     dsigCtx.verify(node)
 ... 
->>> from StringIO import StringIO
->>> verify_file(StringIO(signed_file), BASEDIR + "rsapub.pem")
+>>> verify_file(BytesIO(signed_file), BASEDIR + "rsapub.pem")
 
 
 
@@ -478,7 +488,7 @@ Verifying a signature with a keys manager
 ...     dsigCtx.verify(node)
 ... 
 >>> mngr = load_keys(BASEDIR + "rsapub.pem")
->>> verify_file_with_keysmngr(StringIO(signed_file), mngr)
+>>> verify_file_with_keysmngr(BytesIO(signed_file), mngr)
 
 
 Verifying a signature with X509 certificates
@@ -552,7 +562,7 @@ example has therefore no correspondence with an example for
 ...     dsigCtx.signKey = xmlsec.Key.load(key_file, xmlsec.KeyDataFormatPem, None)
 ...     dsigCtx.verifyBinary(data, algorithm, signature)
 ... 
->>> bin_data = "123"
+>>> bin_data = b"123"
 >>> 
 >>> # sign
 ... # Note: you cannot use a public rsa key for signing.
@@ -563,7 +573,7 @@ example has therefore no correspondence with an example for
 ... verify_binary(bin_data, xmlsec.TransformRsaSha1, BASEDIR + "rsapub.pem", signature)
 >>> 
 >>> # failing verification
-... verify_binary(bin_data + "1", xmlsec.TransformRsaSha1, BASEDIR + "rsapub.pem", signature)
+... verify_binary(bin_data + b"1", xmlsec.TransformRsaSha1, BASEDIR + "rsapub.pem", signature)
 Traceback (most recent call last):
   ...
 dm.xmlsec.binding._xmlsec.VerificationError: Signature verification failed
@@ -594,8 +604,8 @@ Encrypting binary data with a template file
 ...     encCtx.encryptBinary(node, data)
 ...     return tostring(doc)
 ... 
->>> encrypted_data = encrypt_data(BASEDIR + "encrypt1-tmpl.xml", BASEDIR + "deskey.bin", "123")
->>> print encrypted_data
+>>> encrypted_data = encrypt_data(BASEDIR + "encrypt1-tmpl.xml", BASEDIR + "deskey.bin", b"123")
+>>> print(to_text(encrypted_data))
 <!-- 
 XML Security Library example: Simple encryption template file for encrypt1 example. 
 --><EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#">
@@ -641,7 +651,7 @@ Encrypting xml file with a dynamically created template
 ...     BASEDIR + "deskey.bin",
 ...     xmlsec.TypeEncElement,
 ...     )
->>> print encrypted_file_element
+>>> print(to_text(encrypted_file_element))
 <!-- 
 XML Security Library example: Original XML doc file before encryption (encrypt2 example). 
 --><EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#" Type="http://www.w3.org/2001/04/xmlenc#Element"><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#tripledes-cbc"/><ns0:KeyInfo xmlns:ns0="http://www.w3.org/2000/09/xmldsig#"/><CipherData><CipherValue>...</CipherValue></CipherData></EncryptedData>
@@ -650,7 +660,7 @@ XML Security Library example: Original XML doc file before encryption (encrypt2 
 ...     BASEDIR + "deskey.bin",
 ...     xmlsec.TypeEncContent,
 ...     )
->>> print encrypted_file_content
+>>> print(to_text(encrypted_file_content))
 <!-- 
 XML Security Library example: Original XML doc file before encryption (encrypt2 example). 
 --><Envelope xmlns="urn:envelope"><EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#" Type="http://www.w3.org/2001/04/xmlenc#Content"><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#tripledes-cbc"/><ns0:KeyInfo xmlns:ns0="http://www.w3.org/2000/09/xmldsig#"/><CipherData><CipherValue>...</CipherValue></CipherData></EncryptedData></Envelope>
@@ -699,11 +709,11 @@ Encrypting data with a session key
 ...     return tostring(ed.getroottree())
 ... 
 >>> mngr = load_rsa_keys(BASEDIR + "rsakey.pem")
->>> print encrypt_file_with_session_key(
+>>> print(to_text(encrypt_file_with_session_key(
 ...     mngr,
 ...     BASEDIR + "encrypt3-doc.xml",
 ...     "rsakey.pem",
-...     )
+...     )))
 <!-- 
 XML Security Library example: Original XML doc file before encryption (encrypt3 example). 
 --><EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#" Type="http://www.w3.org/2001/04/xmlenc#Element"><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#tripledes-cbc"/><ns0:KeyInfo xmlns:ns0="http://www.w3.org/2000/09/xmldsig#"><EncryptedKey><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#rsa-1_5"/><ns0:KeyInfo><ns0:KeyName>rsakey.pem</ns0:KeyName></ns0:KeyInfo><CipherData><CipherValue>...</CipherValue></CipherData></EncryptedKey></ns0:KeyInfo><CipherData><CipherValue>...</CipherValue></CipherData></EncryptedData>
@@ -742,7 +752,7 @@ Decrypting data with a single key
 ...         # decrypted binary data
 ...         return dr
 ... 
->>> decrypt_file(StringIO(encrypted_data), BASEDIR + "deskey.bin")
+>>> to_text(decrypt_file(BytesIO(encrypted_data), BASEDIR + "deskey.bin"))
 '123'
 
 
@@ -779,9 +789,9 @@ Decrypting data with a keys manager
 ...         return dr
 ... 
 >>> mngr = load_des_keys(BASEDIR + "deskey.bin")
->>> print decrypt_file_with_keys_manager(mngr, BASEDIR + "encrypt1-res.xml")
+>>> print(to_text(decrypt_file_with_keys_manager(mngr, BASEDIR + "encrypt1-res.xml")))
 Big secret
->>> print decrypt_file_with_keys_manager(mngr, BASEDIR + "encrypt2-res.xml")
+>>> print(to_text(decrypt_file_with_keys_manager(mngr, BASEDIR + "encrypt2-res.xml")))
 <!-- 
 XML Security Library example: Encrypted XML file (encrypt2 example). 
 --><Envelope xmlns="urn:envelope">
@@ -789,8 +799,7 @@ XML Security Library example: Encrypted XML file (encrypt2 example).
    Hello, World!
   </Data>
 </Envelope>
->>> from StringIO import StringIO
->>> print decrypt_file_with_keys_manager(mngr, StringIO(encrypted_file_element))
+>>> print(to_text(decrypt_file_with_keys_manager(mngr, BytesIO(encrypted_file_element))))
 <!-- 
 XML Security Library example: Original XML doc file before encryption (encrypt2 example).
 --><Envelope xmlns="urn:envelope">
@@ -798,7 +807,7 @@ XML Security Library example: Original XML doc file before encryption (encrypt2 
 	Hello, World!
   </Data>
 </Envelope>
->>> print decrypt_file_with_keys_manager(mngr, StringIO(encrypted_file_content))
+>>> print(to_text(decrypt_file_with_keys_manager(mngr, BytesIO(encrypted_file_content))))
 <!-- 
 XML Security Library example: Original XML doc file before encryption (encrypt2 example).
 --><Envelope xmlns="urn:envelope">
@@ -815,7 +824,7 @@ Obtaining error information
 ``xmlsec`` is quite terse with error information. Its functions return
 ``-1`` or ``NULL`` on error and that's what you get via the API.
 In case of an error, ``xmlsec`` reports information resembling a traceback
-via the ``libxml2`` error reporting mechanism. However, ``lxml`` do
+via the ``libxml2`` error reporting mechanism. However, ``lxml`` does
 not initialize the mechanism and the resulting reports are lost.
 
 Fortunately, ``xmlsec`` allows its error reporting mechanism to
@@ -824,7 +833,7 @@ customize it. The following example shows how:
 
 >>> def print_errors(filename, line, func, errorObject, errorSubject, reason, msg):
 ...     # this would give complete but often not very usefull) information
-...     # print "%(filename)s:%(line)d(%(func)s) error %(reason)d obj=%(errorObject)s subject=%(errorSubject)s: %(msg)s" % locals()
+...     # print("%(filename)s:%(line)d(%(func)s) error %(reason)d obj=%(errorObject)s subject=%(errorSubject)s: %(msg)s" % locals())
 ...     # the following prints if we get something with relation to the application
 ...     info = []
 ...     if errorObject != "unknown": info.append("obj=" + errorObject)
@@ -833,7 +842,7 @@ customize it. The following example shows how:
 ...     # see `xmlsec`s `errors.h`for the meaning
 ...     if reason != 1: info.append("errno=%d" % reason)
 ...     if info:
-...         print "%s:%d(%s)" % (filename, line, func), " ".join(info)
+...         print("%s:%d(%s)" % (filename, line, func), " ".join(info))
 ... 
 >>> xmlsec.set_error_callback(print_errors)
 
@@ -915,6 +924,9 @@ whether this might be caused by unknown id attribute information.
 
 History
 =======
+
+2.0
+   Python 3 (3.3+) support
 
 1.3.7
    Fix `EncData` template bug reported by Jorge Romero.

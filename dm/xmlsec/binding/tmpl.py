@@ -1,4 +1,4 @@
-# Copyright (C) 2012 by Dr. Dieter Maurer <dieter@handshake.de>; see 'LICENSE.txt' for details
+# Copyright (C) 2012-2018 by Dr. Dieter Maurer <dieter@handshake.de>; see 'LICENSE.txt' for details
 """Auxiliary classes to construct signature/encryption templates."""
 
 from lxml.etree import ElementBase, \

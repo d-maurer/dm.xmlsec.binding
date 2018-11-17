@@ -1,5 +1,5 @@
-# Copyright (C) 2012-2014 by Dr. Dieter Maurer <dieter@handshake.de>; see 'LICENSE.txt' for details
-from _xmlsec import *
+# Copyright (C) 2012-2018 by Dr. Dieter Maurer <dieter@handshake.de>; see 'LICENSE.txt' for details
+from ._xmlsec import *
 
 def dsig(tag):
   """`lxml` tag designator for *tag* in DSig namespace."""
@@ -22,4 +22,4 @@ transformByHref = dict((t.href, t) for t in transforms)
 addIds = addIDs
 
 # generate `__all__` to get the definitions in `_xmlsec` included
-__all__ = list(k for k in globals().iterkeys() if not k.startswith("_"))
+__all__ = list(k for k in globals() if not k.startswith("_"))

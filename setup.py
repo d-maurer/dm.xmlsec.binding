@@ -1,8 +1,14 @@
+from __future__ import print_function
+
 LXML_REQUIREMENT = "lxml>=3.0"
 
-import sys, commands
+import sys
 from os.path import abspath, dirname, join, exists
 from os import environ
+try:
+  from subprocess import getoutput
+except ImportError:
+  from commands import getoutput
 
 # see whether Cython is installed
 try: import Cython
@@ -69,7 +75,7 @@ def extract_cflags(cflags):
                 else:
                     define_macros.append(t)
         else:
-            print "Warning : cflag %s skipped" % flag
+            print("Warning : cflag %s skipped" % flag)
 
 def extract_libs(libs):
     global library_dirs, libraries
@@ -84,30 +90,30 @@ def extract_libs(libs):
             if flag[2:] not in library_dirs:
                 library_dirs.append(flag[2:])
         else:
-            print "Warning : linker flag %s skipped" % flag
+            print("Warning : linker flag %s skipped" % flag)
 
 
-libxml2_cflags = commands.getoutput('xml2-config --cflags')
+libxml2_cflags = getoutput('xml2-config --cflags')
 if libxml2_cflags[:2] not in ["-I", "-D"]:
     sys.exit("Error : cannot get LibXML2 pre-processor and compiler flags; do you have the `libxml2` development package installed?")
 
-libxml2_libs = commands.getoutput('xml2-config --libs')
+libxml2_libs = getoutput('xml2-config --libs')
 if libxml2_libs[:2] not in ["-l", "-L"]:
     sys.exit("Error : cannot get LibXML2 linker flags; do you have the `libxml2` development package installed?")
 
 crypto_engine = environ.get("XMLSEC_CRYPTO_ENGINE")
 if crypto_engine is None:
-  crypto_engine = commands.getoutput("xmlsec1-config --crypto")
+  crypto_engine = getoutput("xmlsec1-config --crypto")
   if not crypto_engine:
     sys.exit("Error: cannot get XMLSec1 crypto engine")
 else:
   assert crypto_engine in ("openssl", "gnutls", "nss")
 crypto_engine = " --crypto=" + crypto_engine
-xmlsec1_cflags = commands.getoutput("xmlsec1-config --cflags" + crypto_engine)
+xmlsec1_cflags = getoutput("xmlsec1-config --cflags" + crypto_engine)
 if xmlsec1_cflags[:2] not in ["-I", "-D"]:
     sys.exit("Error: cannot get XMLSec1 pre-processor and compiler flags; do you have the `libxmlsec1` development package installed?")
 
-xmlsec1_libs = commands.getoutput("xmlsec1-config --libs" + crypto_engine)
+xmlsec1_libs = getoutput("xmlsec1-config --libs" + crypto_engine)
 if xmlsec1_libs[:2] not in ["-l", "-L"]:
     sys.exit("Error : cannot get XMLSec1 linker flags; do you have the `libxmlsec1` development package installed?")
 
@@ -193,15 +199,14 @@ setup(name='dm.xmlsec.binding',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 2.4',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
         "Operating System :: POSIX :: Linux",
         'Topic :: Utilities',
         ],
       author='Dieter Maurer',
       author_email='dieter@handshake.de',
-      url='http://pypi.python.org/pypi/dm.xmlsec.binding',
+      url='https://pypi.org/project/dm.xmlsec.binding',
       packages=['dm', 'dm.xmlsec', 'dm.xmlsec.binding'],
       license='BSD',
       keywords='encryption xml security digital signature cython lxml',

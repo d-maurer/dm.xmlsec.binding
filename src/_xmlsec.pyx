@@ -38,13 +38,15 @@ __error_callback = None
 cdef void _error_callback(char *filename, int line, char *func, char *errorObject, char *errorSubject, int reason, char * msg) with gil:
   if __error_callback is None: return
 
-  if filename == NULL: filename = "unknown"
-  if func == NULL: func = "unknown"
-  if errorObject == NULL: errorObject = "unknown"
-  if errorSubject == NULL: errorSubject = "unknown"
-  if msg == NULL: msg = ""
   try:
-    __error_callback(filename, line, func, errorObject, errorSubject, reason, msg)
+    __error_callback(
+      filename=to_text(filename, "unknown"),
+      line=line,
+      func=to_text(func, "unknown"),
+      errorObject=to_text(errorObject, "unknown"),
+      errorSubject=to_text(errorSubject, "unknown"),
+      msg=to_text(msg, ""),
+      )
   except:
     _logger.exception("XMLSec error callback raised exception")
 
@@ -169,7 +171,8 @@ cdef class Key:
   def load(cls, filename, key_data_format, password=None):
     """load PKI key from file."""
     cdef xmlSecKeyPtr key
-    cdef char *c_filename = filename
+    cdef bytes b_filename = to_filename_bytes(filename)
+    cdef char *c_filename = b_filename
     cdef char *c_password = string_or_null(password)
     cdef xmlSecKeyDataFormat c_key_data_format = key_data_format
     with nogil:
@@ -199,14 +202,16 @@ cdef class Key:
     return k
 
   @classmethod
-  def readBinaryFile(cls, KeyData key_data, char *filename):
+  def readBinaryFile(cls, KeyData key_data, filename):
     """load (symmetric) key from file.
 
     load key of kind *key_data* from *filename*.
     """
     cdef xmlSecKeyPtr key
+    cdef b_filename = to_filename_bytes(filename)
+    cdef char *c_filename = b_filename
     with nogil:
-      key = xmlSecKeyReadBinaryFile(key_data.id, filename)
+      key = xmlSecKeyReadBinaryFile(key_data.id, c_filename)
     if key == NULL:
       raise ValueError("failed to read key from `%s`" % filename)
     # we would like to use `return cls(key)` but this is unsupported by `cython`
@@ -245,11 +250,13 @@ cdef class Key:
     k.key = key
     return k
 
-  def loadCert(self, char *filename, xmlSecKeyDataFormat key_data_format):
+  def loadCert(self, filename, xmlSecKeyDataFormat key_data_format):
     """load certificate of *key_data_format* from *filename*."""
     cdef int rv
+    cdef b_filename = to_filename_bytes(filename)
+    cdef char *c_filename = b_filename
     with nogil:
-      rv = xmlSecCryptoAppKeyCertLoad(self.key, filename, key_data_format)
+      rv = xmlSecCryptoAppKeyCertLoad(self.key, c_filename, key_data_format)
     if rv < 0:
       raise Error("failed to load certificate", filename, rv)
 
@@ -297,7 +304,7 @@ cdef class KeysMngr:
     if rv < 0:
       raise Error("failed to add key", rv)
 
-  def loadCert(self, char * filename, xmlSecKeyDataFormat key_data_format, xmlSecKeyDataType key_data_type):
+  def loadCert(self, filename, xmlSecKeyDataFormat key_data_format, xmlSecKeyDataType key_data_type):
     """load certificate from *filename*.
 
     *key_data_format* specifies the key data format.
@@ -305,8 +312,10 @@ cdef class KeysMngr:
     *type* specifies the type and is an or of `KeyDataType*` constants.
     """
     cdef int rv
+    cdef bytes b_filename = to_filename_bytes(filename)
+    cdef char * c_filename = b_filename
     with nogil:
-      rv = xmlSecCryptoAppKeysMngrCertLoad(self.mngr, filename, key_data_format, key_data_type)
+      rv = xmlSecCryptoAppKeysMngrCertLoad(self.mngr, c_filename, key_data_format, key_data_type)
     if rv < 0:
       raise Error("failed to load certificate", rv, filename)
 
@@ -659,8 +668,8 @@ cdef xmlChar * py2xmlChar(object obj, object retain) except? NULL:
     ps = obj.encode("utf8")
     retain.append(ps)
     rv = ps
-  elif not isinstance(obj, str):
-    raise TypeError("xmlChar requires `None`, `str` or `unicode`")
+  elif not isinstance(obj, bytes):
+    raise TypeError("xmlChar requires `None`, `bytes` or `unicode`")
   else: rv = obj
   return <xmlChar *> rv
 
@@ -797,3 +806,17 @@ TransformUsageAny = xmlSecTransformUsageAny
 
 TypeEncContent = "http://www.w3.org/2001/04/xmlenc#Content"
 TypeEncElement = "http://www.w3.org/2001/04/xmlenc#Element"
+
+
+# helpers
+from sys import getdefaultencoding, getfilesystemencoding
+d_enc = getdefaultencoding()
+fs_enc = getfilesystemencoding() or d_enc
+
+cdef to_text(t, default=None):
+  if t is None: return default
+  if isinstance(t, basestring): return t
+  return t.decode(d_enc)
+
+cdef bytes to_filename_bytes(filename):
+  return filename.encode(fs_enc) if isinstance(filename, unicode) else filename

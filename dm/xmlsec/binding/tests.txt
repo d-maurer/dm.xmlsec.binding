@@ -12,8 +12,19 @@ tests.
 >>> # xmlsec.initialize() # initialization already happened (not sure that this is always the case)
 >>> from os.path import dirname, basename
 >>> from lxml.etree import tostring, parse
+>>> from sys import version_info
 >>> BASEDIR = dirname(xmlsec.__file__) + "/resources/"
 
+
+The following are helpers to hide differences between
+Python 2 and Python 3.
+
+>>> def to_text(b):
+...   return b.decode("utf-8") if version_info.major > 2 else b
+...
+>>> try: from io import BytesIO
+... except ImportError: from StringIO import StringIO as BytesIO
+...
 
 
 Decryption of XML nodes other than the root
@@ -41,10 +52,10 @@ Now decrypt.
 >>> encCtx = xmlsec.EncCtx()
 >>> encCtx.encKey = encKey
 >>> dd = encCtx.decrypt(edoc.find(xmlsec.enc("EncryptedData")))
->>> print dd.text.strip()
+>>> print(dd.text.strip())
 Hello, World!
 >>> ddoc = dd.getroottree()
->>> print tostring(ddoc)
+>>> print(to_text(tostring(ddoc)))
 <!-- 
 XML Security Library example: Original XML doc file before encryption (encrypt2 example). 
 --><Envelope xmlns="urn:envelope">
