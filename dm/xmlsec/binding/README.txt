@@ -925,6 +925,9 @@ whether this might be caused by unknown id attribute information.
 History
 =======
 
+2.1
+   Allow ``Reference``s to have empty attributes.
+
 2.0
    Python 3 (3.3+) support
 

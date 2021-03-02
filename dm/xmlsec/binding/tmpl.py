@@ -90,9 +90,9 @@ class _Reference(_DSigBase):
 
 def Reference(digestMethod, id=None, uri=None, type=None):
     attrib = {}
-    if id: attrib["Id"] = id
-    if uri: attrib["URI"] = uri
-    if type: attrib["Type"] = type
+    if id is not None: attrib["Id"] = id
+    if uri is not None: attrib["URI"] = uri
+    if type is not None: attrib["Type"] = type
     return mke(
       dsig("Reference"),
       mke(dsig("DigestMethod"), Algorithm=digestMethod.href),
