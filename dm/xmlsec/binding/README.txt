@@ -133,9 +133,16 @@ the encrypted part of the tree. If ``decrypt`` results in an XML result
 the decrypted subtree (which usually is not the root of the whole tree).
 Applying ``getroottree`` to an XML result of ``encryptXml``/``decrypt``
 gives a (new) safe reference to the whole tree.
-
 The ``xmlsec`` examples have been modified to reflect this peculiarity
 of the ``lxml`` binding.
+
+**ATTENTION:** For modern ``lxml`` versions, I have observed a failure
+of the decryption test ``Decryption of XML nodes other than the root``
+in ``tests.txt``. This indicates that the approach described above
+is no longer sufficient to ensure an updated ``lxml`` view of the tree
+after the encryption/decryption. For the test, I worked around
+by conversion to XML text and reparsing.
+I will try to find a better solution.
 
 
 Failure handling
@@ -925,8 +932,20 @@ whether this might be caused by unknown id attribute information.
 History
 =======
 
+2.2
+   Modernize the precompiled C source (to make it compatible
+   with Python 3.10).
+
+   In modern ``lxml`` versions, the approach from
+   section  `Accessing encryption/decryption results`_
+   is no longer sufficient to ensure an up to date
+   ``lxml`` view of a document after encryption/decryption.
+   The test broken by this change now uses
+   serialization/reparsing as a work around.
+   I am looking for a better solution.
+
 2.1
-   Allow ``Reference``s to have empty attributes.
+   Allow ``Reference`` to have empty attributes.
 
 2.0
    Python 3 (3.3+) support

@@ -11,7 +11,7 @@ tests.
 >>> import dm.xmlsec.binding as xmlsec
 >>> # xmlsec.initialize() # initialization already happened (not sure that this is always the case)
 >>> from os.path import dirname, basename
->>> from lxml.etree import tostring, parse
+>>> from lxml.etree import fromstring, tostring, parse
 >>> from sys import version_info
 >>> BASEDIR = dirname(xmlsec.__file__) + "/resources/"
 
@@ -46,9 +46,14 @@ First encrypt a nested node.
 
 Now decrypt.
 
+Modern ``lxml`` versions apparently use a cache in its ``find``
+(and maybe other methods). This gets confused by the in place
+modifications performed by ``xmlsec``. Therefore, we explicitly
+serialize and deserialize.
+>>> edoc = fromstring(tostring(edoc))
+
 >>> encCtx = xmlsec.EncCtx()
 >>> encCtx.encKey = encKey
->>> edoc = ed.getroottree()
 >>> encCtx = xmlsec.EncCtx()
 >>> encCtx.encKey = encKey
 >>> dd = encCtx.decrypt(edoc.find(xmlsec.enc("EncryptedData")))
