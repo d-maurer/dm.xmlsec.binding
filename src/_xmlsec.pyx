@@ -1,5 +1,5 @@
-#cython: embedsignature=True
-# Copyright (C) 2012-2018 by Dr. Dieter Maurer <dieter@handshake.de>; see 'LICENSE.txt' for details
+#cython: embedsignature=True, language_level=3
+# Copyright (C) 2012-2024 by Dr. Dieter Maurer <dieter.maurer@online.de>; see 'LICENSE.txt' for details
 """Cython generated binding to `xmlsec`.
 
 We probably should have `with nogil` for all `xmlsec` functions working
@@ -15,7 +15,7 @@ from cxmlsec cimport *
 from etreepublic cimport import_lxml__etree, _Document, _Element, pyunicode, \
      elementFactory
 from tree cimport xmlDocCopyNode, xmlFreeNode, xmlNode, xmlDoc, \
-     xmlDocGetRootElement, xmlReplaceNode
+     xmlDocGetRootElement, xmlReplaceNode, _isElement
 
 cdef extern from "stdio.h":
   ctypedef struct FILE
@@ -35,7 +35,7 @@ import_lxml__etree()
 __error_callback = None
 
 
-cdef void _error_callback(char *filename, int line, char *func, char *errorObject, char *errorSubject, int reason, char * msg) with gil:
+cdef void _error_callback(char *filename, int line, char *func, char *errorObject, char *errorSubject, int reason, char * msg) noexcept with gil:
   if __error_callback is None: return
 
   try:
@@ -45,6 +45,7 @@ cdef void _error_callback(char *filename, int line, char *func, char *errorObjec
       func=to_text(func, "unknown"),
       errorObject=to_text(errorObject, "unknown"),
       errorSubject=to_text(errorSubject, "unknown"),
+      reason=reason,
       msg=to_text(msg, ""),
       )
   except:
@@ -92,7 +93,8 @@ def cryptoAppInit(name=None):
 
   Usually, you would use `initialize` rather than this low level function.
   """
-  if xmlSecCryptoAppInit(string_or_null(name)) != 0:
+  name = bytes_or_none(name)
+  if xmlSecCryptoAppInit(cstring_or_null(name)) != 0:
     raise Error("xmlsec crypto app initialization failed")
 
 def cryptoInit():
@@ -148,9 +150,14 @@ def addIDs(_Element node, ids):
 
 cdef class Transform:
   cdef xmlSecTransformId id
+  cdef object _name_as_variable
 
   property name:
     def __get__(self): return xmlChar2py(<xmlChar*>self.id.name)
+
+  property name_as_variable:
+    def __get__(self): return self._name_as_variable
+    def __set__(self, name): self._name_as_variable = name
 
   property href:
     def __get__(self): return xmlChar2py(<xmlChar*>self.id.href)
@@ -168,15 +175,21 @@ cdef class Key:
     if self.key != NULL: xmlSecKeyDestroy(self.key)
 
   @classmethod
-  def load(cls, filename, key_data_format, password=None):
+  def load(cls, filename, key_data_format, password=None, key_data_type=None):
     """load PKI key from file."""
     cdef xmlSecKeyPtr key
     cdef bytes b_filename = to_filename_bytes(filename)
     cdef char *c_filename = b_filename
-    cdef char *c_password = string_or_null(password)
+    b_password = bytes_or_none(password)
+    cdef char *c_password = cstring_or_null(b_password)
     cdef xmlSecKeyDataFormat c_key_data_format = key_data_format
+    cdef xmlSecKeyDataType c_key_data_type
+    if key_data_type is None: c_key_data_type = xmlSecKeyDataTypeAny
+    else: c_key_data_type = key_data_type
+    if not min_version(1, 3, 0) and c_key_data_type != xmlSecKeyDataTypeAny:
+      raise ValueError("`key_data_type` supported only for `xmlsec 1.3+`")
     with nogil:
-      key = xmlSecCryptoAppKeyLoad(c_filename, c_key_data_format, c_password, NULL, NULL)
+      key = xmlSecCryptoAppKeyLoadEx(c_filename, c_key_data_type, c_key_data_format, c_password, NULL, NULL)
     if key == NULL:
       raise ValueError("failed to load key from file", filename)
     # we would like to use `return cls(key)` but this is unsupported by `cython`
@@ -190,7 +203,8 @@ cdef class Key:
     cdef xmlSecKeyPtr key
     cdef size_t c_size = len(data)
     cdef const_unsigned_char *c_data = <const_unsigned_char*><char*>data
-    cdef const_char *c_password = <const_char *>string_or_null(password)
+    b_password = bytes_or_none(password)
+    cdef const_char *c_password = <const_char *>cstring_or_null(b_password)
     cdef xmlSecKeyDataFormat c_key_data_format = key_data_format
     with nogil:
       key = xmlSecCryptoAppKeyLoadMemory(c_data, c_size, c_key_data_format, c_password, NULL, NULL)
@@ -478,6 +492,10 @@ cdef class DSigCtx:
         if rv < 0:
             raise Error("setEnabledKeyData failed")
 
+  property key_info_flags:
+    def __get__(self): return self.ctx.keyInfoReadCtx.flags
+    def __set__(self, int flags): self.ctx.keyInfoReadCtx.flags = flags
+
 
 
 cdef class EncCtx:
@@ -513,17 +531,23 @@ cdef class EncCtx:
 
   def encryptBinary(self, _Element tmpl not None, data):
     """encrypt binary *data* according to `EncryptedData` template *tmpl* and return the resulting `EncryptedData` subtree.
-
-    Note: *tmpl* is modified in place.
     """
     cdef int rv
     cdef size_t c_size = len(data)
+    cdef xmlNode *t_node = tmpl._c_node
     cdef const_unsigned_char *c_data = <const_unsigned_char *><char *>data
     with nogil:
-      rv = xmlSecEncCtxBinaryEncrypt(self.ctx, tmpl._c_node, c_data, c_size)
+      t_node = xmlDocCopyNode(t_node, t_node.doc, 1)
+    if t_node == NULL:
+      raise Error("Copying the template tree failed")
+    with nogil:
+      rv = xmlSecEncCtxBinaryEncrypt(self.ctx, t_node, c_data, c_size)
     if rv < 0:
+      # delete our `t_node` copy
+      with nogil:
+        xmlFreeNode(t_node)
       raise Error("failed to encrypt binary", rv)
-    return tmpl
+    return elementFactory(tmpl._doc, t_node)
 
   def encryptXml(self, _Element tmpl not None, _Element node not None):
     """encrpyt *node* using *tmpl* and return the resulting `EncryptedData` element.
@@ -541,71 +565,51 @@ cdef class EncCtx:
     """
     cdef xmlSecEncCtxPtr ctx = self.ctx
     cdef int rv
-    cdef xmlNode *c_node = tmpl._c_node
-    cdef xmlNode *l_node = node._c_node
-    cdef xmlNode *enc_node = l_node
-    cdef xmlDoc  *doc = node._doc._c_doc
+    cdef xmlNode *t_node = tmpl._c_node  # template xmlNode
+    cdef xmlNode *e_node = node._c_node  # xmlNode to be encrypted
+    cdef _Document e_doc = node._doc     # _Document to be encrypted
     et = tmpl.get("Type")
     if et not in (TypeEncElement,  TypeEncContent):
       raise Error("unsupported `Type` for `encryptXML` (must be `%s` or `%s`)" % (TypeEncElement, TypeEncContent), et)
-    # `xmlSecEncCtxEncrypt` expects *tmpl* to belong to the document of *node*
-    #    if this is not the case, we copy the `libxml2` subtree there.
-    if tmpl._doc._c_doc != doc:
-      with nogil:
-        c_node = xmlDocCopyNode(c_node, doc, 1) # recursive
-      if c_node == NULL:
-        raise MemoryError("could not copy template tree")
-    # `xmlSecEncCtxXmlEncrypt` will replace the subtree rooted
-    #   at `node._c_node` or its children by an extended subtree
-    #   rooted at "c_node". The code below ensures that this
-    #   does not confuse `lxml`
-    if et == TypeEncElement:
-      # we prevent the deletion of the replaced node - this is okay, as
-      #  "lxml" still helds a reference to it and it is deleted
-      #  when the reference is released
-      ctx.flags = XMLSEC_ENC_RETURN_REPLACED_NODE
-    else:
-      # this means `et == TypeEncContent`
-      #   `xmlSecEncCtxXmlEncrypt` will replace the children of `enc_node`
-      #   As we do not yet know how to safely release the replaced children,
-      #   we copy the node and let it modify the copy
-      with nogil:
-        enc_node = xmlDocCopyNode(enc_node, doc, 1) # recursive
-        xmlReplaceNode(l_node, enc_node) # `node._c_node` is now "free"
+    # We copy `t_node` to avoid problems with stale `lxml` references into
+    # the template
     with nogil:
-      rv = xmlSecEncCtxXmlEncrypt(ctx, c_node, enc_node)
-    ctx.replacedNodeList = NULL
+      t_node = xmlDocCopyNode(t_node, e_node.doc, 1)
+    if t_node == NULL:
+      raise Error("Copying the template tree failed")
+    ctx.flags = XMLSEC_ENC_RETURN_REPLACED_NODE
+    with nogil:
+      rv = xmlSecEncCtxXmlEncrypt(ctx, t_node, e_node)
     if rv < 0:
-      if et != TypeEncElement:
-        # undo our tree modification
-        with nogil:
-          xmlReplaceNode(enc_node, l_node)
-          xmlFreeNode(enc_node)
-      if c_node._private == NULL:
-        # tmplate tree was copied; free it again.
-        # Note: if the problem happened late (e.g. a `MemoryError`)
-        #  `c_node' might already be part of the result tree.
-        #  In this case, memory corruption may result. But,
-        #  we have an inconsistent state anyway and the probability
-        #  should be very low.
-        with nogil:
-          xmlFreeNode(c_node) # free formerly copied template subtree
+      # delete our `t_node` copy
+      with nogil:
+        xmlFreeNode(t_node)
       raise Error("failed to encrypt xml", rv)
-    # `c_node` contains the resulting `EncryptedData` element.
-    return elementFactory(node._doc, c_node)
+    # clean up replaced nodes
+    attemptDeallocations(&ctx.replacedNodeList, e_doc)
+    # `t_node` contains the resulting `EncryptedData` element.
+    return elementFactory(e_doc, t_node)
 
 
   def encryptUri(self, _Element tmpl not None, uri):
     """encrypt binary data obtained from *uri* according to *tmpl*."""
     cdef int rv
+    cdef xmlNode *t_node = tmpl._c_node
     if uri is None: raise ValueError("uri must not be `None`")
     retain = []
     cdef xmlChar *c_uri = py2xmlChar(uri, retain)
     with nogil:
-      rv = xmlSecEncCtxUriEncrypt(self.ctx, tmpl._c_node, c_uri)
+      t_node = xmlDocCopyNode(t_node, t_node.doc, 1)
+    if t_node == NULL:
+      raise Error("Copying the template tree failed")
+    with nogil:
+      rv = xmlSecEncCtxUriEncrypt(self.ctx, t_node, c_uri)
     if rv < 0:
+      # delete our `t_node` copy
+      with nogil:
+        xmlFreeNode(t_node)
       raise Error("failed to encrypt uri", rv)
-    return tmpl
+    return elementFactory(tmpl._doc, t_node)
 
 
   def decrypt(self, _Element node not None):
@@ -633,7 +637,6 @@ cdef class EncCtx:
     ctx.flags = XMLSEC_ENC_RETURN_REPLACED_NODE
     with nogil:
       rv = xmlSecEncCtxDecrypt(ctx, enc_node)
-    ctx.replacedNodeList = NULL
     if rv < 0:
       raise Error("failed to decrypt", rv)
     cdef xmlSecBufferPtr res
@@ -642,6 +645,8 @@ cdef class EncCtx:
       res = ctx.result
       return <bytes> (<char*>ctx.result.data)[:res.size]
     # XML result
+    # clean up replaced nodes
+    attemptDeallocations(&ctx.replacedNodeList, node._doc)
     if parent is not None:
       if decrypt_content: return parent
       else: return parent[enc_index]
@@ -651,6 +656,9 @@ cdef class EncCtx:
       raise Error("decryption resulted in a non well formed document")
     return elementFactory(node._doc, c_root)
 
+  property key_info_flags:
+    def __get__(self): return self.ctx.keyInfoReadCtx.flags
+    def __set__(self, int flags): self.ctx.keyInfoReadCtx.flags = flags
 
 
 cdef xmlChar * py2xmlChar(object obj, object retain) except? NULL:
@@ -680,61 +688,40 @@ cdef xmlChar2py(xmlChar * xs):
   return pyunicode(xs)
   
 
+cdef inline object bytes_or_none(s):
+  if s is None: return
+  return s if isinstance(s, bytes) else s.encode(d_enc)
 
-cdef inline char * string_or_null(s):
-  return NULL if s is None else <char *> s
+cdef inline char * cstring_or_null(b):
+  """*b* is either of tyoe `bytes` or `None`."""
+  if b is None: return NULL
+  return <char *> b
 
 
-cdef _mkti(xmlSecTransformId id):
+cdef _mkti(xmlSecTransformId id, name=None):
   cdef Transform o = Transform()
   o.id = id
+  o._name_as_variable = name and "Transform" + name
   return o
 
-TransformInclC14N = _mkti(xmlSecTransformInclC14NId)
-TransformInclC14NWithComments = _mkti(xmlSecTransformInclC14NWithCommentsId)
-TransformInclC14N11 = _mkti(xmlSecTransformInclC14N11Id)
-TransformInclC14N11WithComments = _mkti(xmlSecTransformInclC14N11WithCommentsId)
-TransformExclC14N = _mkti(xmlSecTransformExclC14NId)
-TransformExclC14NWithComments = _mkti(xmlSecTransformExclC14NWithCommentsId)
-TransformEnveloped = _mkti(xmlSecTransformEnvelopedId)
-TransformXPath = _mkti(xmlSecTransformXPathId)
-TransformXPath2 = _mkti(xmlSecTransformXPath2Id)
-TransformXPointer = _mkti(xmlSecTransformXPointerId)
-TransformXslt = _mkti(xmlSecTransformXsltId)
-TransformRemoveXmlTagsC14N = _mkti(xmlSecTransformRemoveXmlTagsC14NId)
-TransformVisa3DHack = _mkti(xmlSecTransformVisa3DHackId)
-TransformAes128Cbc = _mkti(xmlSecTransformAes128CbcId)
-TransformAes192Cbc = _mkti(xmlSecTransformAes192CbcId)
-TransformAes256Cbc = _mkti(xmlSecTransformAes256CbcId)
-TransformKWAes128 = _mkti(xmlSecTransformKWAes128Id)
-TransformKWAes192 = _mkti(xmlSecTransformKWAes192Id)
-TransformKWAes256 = _mkti(xmlSecTransformKWAes256Id)
-TransformDes3Cbc = _mkti(xmlSecTransformDes3CbcId)
-TransformKWDes3 = _mkti(xmlSecTransformKWDes3Id)
-TransformDsaSha1 = _mkti(xmlSecTransformDsaSha1Id)
-TransformHmacMd5 = _mkti(xmlSecTransformHmacMd5Id)
-TransformHmacRipemd160 = _mkti(xmlSecTransformHmacRipemd160Id)
-TransformHmacSha1 = _mkti(xmlSecTransformHmacSha1Id)
-TransformHmacSha224 = _mkti(xmlSecTransformHmacSha224Id)
-TransformHmacSha256 = _mkti(xmlSecTransformHmacSha256Id)
-TransformHmacSha384 = _mkti(xmlSecTransformHmacSha384Id)
-TransformHmacSha512 = _mkti(xmlSecTransformHmacSha512Id)
-TransformMd5 = _mkti(xmlSecTransformMd5Id)
-TransformRipemd160 = _mkti(xmlSecTransformRipemd160Id)
-TransformRsaMd5 = _mkti(xmlSecTransformRsaMd5Id)
-TransformRsaRipemd160 = _mkti(xmlSecTransformRsaRipemd160Id)
-TransformRsaSha1 = _mkti(xmlSecTransformRsaSha1Id)
-TransformRsaSha224 = _mkti(xmlSecTransformRsaSha224Id)
-TransformRsaSha256 = _mkti(xmlSecTransformRsaSha256Id)
-TransformRsaSha384 = _mkti(xmlSecTransformRsaSha384Id)
-TransformRsaSha512 = _mkti(xmlSecTransformRsaSha512Id)
-TransformRsaPkcs1 = _mkti(xmlSecTransformRsaPkcs1Id)
-TransformRsaOaep = _mkti(xmlSecTransformRsaOaepId)
-TransformSha1 = _mkti(xmlSecTransformSha1Id)
-TransformSha224 = _mkti(xmlSecTransformSha224Id)
-TransformSha256 = _mkti(xmlSecTransformSha256Id)
-TransformSha384 = _mkti(xmlSecTransformSha384Id)
-TransformSha512 = _mkti(xmlSecTransformSha512Id)
+def transforms_list():
+  """the list of known transforms."""
+  transforms = [
+    _mkti(xmlSecTransformRemoveXmlTagsC14NId, "RemoveXmlTagsC14N"),
+    _mkti(xmlSecTransformRsaOaepId, "RsaOaep"),
+    _mkti(xmlSecTransformRsaPkcs1Id, "RsaPkcs1"),
+    _mkti(xmlSecTransformVisa3DHackId, "Visa3DHack"),
+    _mkti(xmlSecTransformXPathId),
+    _mkti(xmlSecTransformXPath2Id),
+    _mkti(xmlSecTransformXPointerId),
+    ]
+  cdef xmlSecPtrListPtr t_list = xmlSecTransformIdsGet()
+  cdef xmlSecSize size = xmlSecPtrListGetSize(t_list), pos = 0
+  while pos < size:
+    transforms.append(_mkti(<xmlSecTransformId> xmlSecPtrListGetItem(t_list, pos)))
+    pos += 1
+  return transforms
+
 
 
 cdef class KeyData:
@@ -807,16 +794,55 @@ TransformUsageAny = xmlSecTransformUsageAny
 TypeEncContent = "http://www.w3.org/2001/04/xmlenc#Content"
 TypeEncElement = "http://www.w3.org/2001/04/xmlenc#Element"
 
+KeySearchLax = 0x00008000
+
 
 # helpers
 from sys import getdefaultencoding, getfilesystemencoding
 d_enc = getdefaultencoding()
 fs_enc = getfilesystemencoding() or d_enc
 
-cdef to_text(t, default=None):
-  if t is None: return default
-  if isinstance(t, basestring): return t
+cdef to_text(char *ct, default=None):
+  t = default if ct == NULL else ct
+  if isinstance(t, unicode): return t
   return t.decode(d_enc)
 
 cdef bytes to_filename_bytes(filename):
   return filename.encode(fs_enc) if isinstance(filename, unicode) else filename
+
+cdef attemptDeallocation(xmlNode *n, _Document doc):
+  """free *n* if there are no `lxml` references into it.
+
+  If there are such references, *n* is freed by `lxml`
+  after all those references have been released.
+  """
+  # We would like to use `attemptDeallocation` from `lxml`'s "proxy.pxi".
+  # Unfortunately, it is not exposed
+  # We therefore use a trick: wrap *n* into an `_Element`
+  # and release it immediately
+  assert n.next == NULL, "right sibling exists"
+  assert n.prev == NULL, "left sibling exists"
+  assert n.parent == NULL, "parent exists"
+  if n._private: return # is referenced itself
+  if _isElement(n):
+    elementFactory(doc, n) # destruction will free *n* if possible
+  else:
+    # no parent, no siblings, no children, not directly referenced
+    # freeable
+    assert n.children == NULL, "unexpected children"
+    xmlFreeNode(n)
+
+
+cdef attemptDeallocations(xmlNode *list[], _Document doc):
+  """free the nodes in the (doubly linked) *list* if possible.
+
+  See `attemptDeallocation` for details.
+  """
+  cdef xmlNode *start = list[0]
+  cdef xmlNode *next
+  list[0] = NULL
+  while start:
+    next = start.next
+    start.next = start.prev = NULL
+    attemptDeallocation(start, doc)
+    start = next

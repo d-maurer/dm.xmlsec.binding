@@ -178,7 +178,7 @@ setupArgs = dict(
     zip_safe=False,
     entry_points = dict(
       ),
-    test_suite='dm.xmlsec.binding.tests.testsuite',
+    test_suite='dm.xmlsec.binding.tests.test_suite',
     test_requires=['lxml'],
     )
 
@@ -205,7 +205,7 @@ setup(name='dm.xmlsec.binding',
         'Topic :: Utilities',
         ],
       author='Dieter Maurer',
-      author_email='dieter@handshake.de',
+      author_email='dieter.maurer@online.de',
       url='https://pypi.org/project/dm.xmlsec.binding',
       packages=['dm', 'dm.xmlsec', 'dm.xmlsec.binding'],
       license='BSD',

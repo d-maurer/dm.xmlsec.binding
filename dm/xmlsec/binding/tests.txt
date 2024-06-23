@@ -46,12 +46,6 @@ First encrypt a nested node.
 
 Now decrypt.
 
-Modern ``lxml`` versions apparently use a cache in its ``find``
-(and maybe other methods). This gets confused by the in place
-modifications performed by ``xmlsec``. Therefore, we explicitly
-serialize and deserialize.
->>> edoc = fromstring(tostring(edoc))
-
 >>> encCtx = xmlsec.EncCtx()
 >>> encCtx.encKey = encKey
 >>> encCtx = xmlsec.EncCtx()

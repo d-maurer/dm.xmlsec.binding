@@ -4,18 +4,50 @@ to be used together with lxml (http://lxml.de), the most popular Python
 binding to the Gnome XML library libxml2 (http://xmlsoft.org).
 
 
+**ATTENTION:** Some uses of this package can lead to memory corruption
+potentially leading to a crash. The package integrates
+``lxml`` and ``xmlsec``, both sitting on top or the C library
+``libxml2``. ``libxml2`` manages complex heap allocated data
+structures (representing XML documents). As always in such cases,
+memory management is complex: there is the risk of forgetting
+to free memory no longer referenced
+and the risk of freeing memory still in use. ``xmlsec`` transforms
+XML documents which in some cases removes document parts. In those
+cases ``xmlsec`` assumes
+that it should free the respective memory. This
+implies that the application must not hold direct references
+into document parts to be removed by ``xmlsec``;
+those references would refer to freed memory
+after the document parts have been removed, likely leading to memory
+corruption and potentially a crash. While this risk exists, I
+have not yet gotten actual crash reports; thus, typical applications likely
+do the right thing.
+
+
 Installation
 ============
 
-Installation of this package requires that you have previously installed
-`setuptools` (http://pypi.python.org/pypi/setuptools) or an equivalent
-package manager.
+Operating system level requirements
+-----------------------------------
 
-In addition, you must have installed the development packages for
-libxml2 and the XML security library (often called ``libxmlsec1``)
-on the operating system level.
+You must have installed the development packages for
+``libxml2`` and the XML security library (often called ``libxmlsec1``).
 
-The installation will install ``lxml``, if not yet already installed.
+
+Python level requirements
+-------------------------
+
+You must have installed `setuptools <https://pypi.python.org/pypi/setuptools>`_
+or an equivalent package manager.
+
+You must have installed a **non binary** ``lxml``
+distribution (e.g. via ``pip install --no-binary lxml lxml``).
+Binary ``lxml`` distributions typically have a static copy
+of ``libxml2`` linked in. With ``libxmlsec1``, you will get an
+additional ``libxml2`` instance (dynamically linked in).
+The use of more than a single ``libxml2`` instance is
+incompatible with some ``libxml2`` optimizations and can
+lead to memory corruption and a subsequent crash.
 
 This package interfaces with ``lxml`` via its Cython interface
 (described in ``etreepublic.pxd``). Some operating system installations
@@ -30,8 +62,25 @@ engine, you can set the envvar ``XMLSEC_CRYPTO_ENGINE`` to the corresponding
 value. In this case, you may need to pass the name of your crypto engine
 to the ``initialize`` function.
 
+If those requirements are met, you can install the
+package in the typical ways, e.g. ``pip install dm.xmlsec.binding``.
+
+
 I have tried installation only on Linux, it may not work on other
 platforms.
+
+
+Testing the installation
+------------------------
+
+You can test the installation by downloading
+the source distribution, extracting its content
+and running ``python setup.py test`` in its top level
+directory.
+
+Alternatively, you can use
+`zope.testrunner <https://pypi.org/project/zope-testrunner/>`_
+to test the installation.
 
 
 Important differences with ``xmlsec``
@@ -136,13 +185,11 @@ gives a (new) safe reference to the whole tree.
 The ``xmlsec`` examples have been modified to reflect this peculiarity
 of the ``lxml`` binding.
 
-**ATTENTION:** For modern ``lxml`` versions, I have observed a failure
-of the decryption test ``Decryption of XML nodes other than the root``
-in ``tests.txt``. This indicates that the approach described above
-is no longer sufficient to ensure an updated ``lxml`` view of the tree
-after the encryption/decryption. For the test, I worked around
-by conversion to XML text and reparsing.
-I will try to find a better solution.
+The encryption methods copy the template (to avoid the risk
+of memory corruption due to application references into part
+of the template). For encryption and decryption, the application
+can safely hold references into the document being encrypted or
+decrypted.
 
 
 Failure handling
@@ -408,27 +455,7 @@ kN6vRPLWr6fsnzlWdvYXCf7AXK17ANSskSNzoiQCPFYi2yISCAZlOhle9GSgMe4z
 iUjrvdRU9b5zan+yBfloWw3tsRBDqcIm0xDWcUHavcn9wxuX+7QTl+B+Qe6OZJJO
 4dM1ESmjhamEFtqSiij20HSUp32AUXiKIeKnFdT4hYuacwEdF5ZXVUQ79pLBxfIR
 wlyXAHbqFba/h/Qxe8FMIQ==</SignatureValue><KeyInfo><KeyName/><X509Data>
-<X509Certificate>MIID3zCCAscCCQCsJYoNNCLPzjANBgkqhkiG9w0BAQUFADCBszELMAkGA1UEBhMC
-REUxETAPBgNVBAgTCFNhYXJsYW5kMRIwEAYDVQQHEwlFcHBlbGJvcm4xGjAYBgNV
-BAoTEWRtLnhtbHNlYy5iaW5kaW5nMSEwHwYDVQQLExhFeGFtcGxlIFJvb3QgQ2Vy
-dGlmaWNhdGUxGjAYBgNVBAMTEWRtLnhtbHNlYy5iaW5kaW5nMSIwIAYJKoZIhvcN
-AQkBFhNkaWV0ZXJAaGFuZHNoYWtlLmRlMB4XDTEyMDYxNTE0Mzg1NFoXDTMxMDgx
-NTE0Mzg1NFowga4xCzAJBgNVBAYTAkRFMREwDwYDVQQIEwhTYWFybGFuZDESMBAG
-A1UEBxMJRXBwZWxib3JuMRowGAYDVQQKExFkbS54bWxzZWMuYmluZGluZzEcMBoG
-A1UECxMTRXhhbXBsZSBjZXJ0aWZpY2F0ZTEaMBgGA1UEAxMRZG0ueG1sc2VjLmJp
-bmRpbmcxIjAgBgkqhkiG9w0BCQEWE2RpZXRlckBoYW5kc2hha2UuZGUwggEiMA0G
-CSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDG2XhPbbMvKvwFRZ68Rk/gAGfz80Jw
-sO3Cn/c6Ru99L1cimjFz7V8izjpU1Kz+XbFr89mrNVew4SRAFrrtJrKrEfD2IPMc
-+FEOVxtiUaRYcO+jTrMsfI3jpSb3Bnlkd/H90W6713whk4J7DcKJiaVHLZtUm5FP
-WABKsiyevzrJvxHVyC4aE0lYzrllVxpKf5xGinwAuY67O7ODAMdFQfvtIkJLp938
-mwXONgxmC9LAc6lBXK4ER4XhF9zWGVdgHFK3i7SdqQbRSCg8XRLKDQquOmIZoSF+
-aq1sVz2NfZIEiS2rfDgh6PquTR/WXgS3txpcQmq1fG9a72HM4V1fEDUtAgMBAAEw
-DQYJKoZIhvcNAQEFBQADggEBACYexrHl0hECRAV66UDmSeIw3V1gBR9tqYE9Q3LP
-N0jBZA+hQi1oa5PLqwG3LbIHYRwXLThvBMsUNfsAFLvfMJTbRGan8RqUapEdb3nm
-DNZKHG5Sf2bfzIyIb8GnGDLC47sjVK9+ujQuH/xUjiOsf2c5GNJHyibxgq0G1vQq
-tf00D3SV9AkRsSeBjV8irNHk1J/SALFdSnycT4rgUbuvEb0b9FPaHJBxkjFbrSnV
-AVc9F/lrx5uDFhd+FaRTbQcaQzG0UyyHlEa/kUp7Bclz0KD21Rb7GOglqUGK+UK2
-5AvjVnxazsV0DJzTyRVdJ9QiNqOiPzGvMd1cIxPI5NJQEw0=</X509Certificate>
+<X509Certificate>...</X509Certificate>
 </X509Data></KeyInfo></Signature><Data>
 	Hello, World!
   </Data>
@@ -468,16 +495,24 @@ Verifying a signature with a single key
 Verifying a signature with a keys manager
 -----------------------------------------
 
+Note: the example below uses an asymmetric key.
+The signed document contains information about the key used
+for signing. We must give our verification key its name
+such that the correct key is located in the manager.
+
 >>> def load_keys(*keys):
 ...     """return `KeysMngr` with *keys*.
 ... 
-...     *keys* is a sequence of filenames containing PEM encoded keys.
+...     *keys* is a sequence.
+...     Each element is either the path to a file containing the PEM encoded key
+...     or a pair or such a path and the key name.
 ...     """
 ...     mngr = xmlsec.KeysMngr()
 ...     for k in keys:
+...         f, name = k if isinstance(k, tuple) else (k, basename(k))
 ...         # must set the key name before we add the key to `mngr`
-...         key = xmlsec.Key.load(k, xmlsec.KeyDataFormatPem)
-...         key.name = basename(k)
+...         key = xmlsec.Key.load(f, xmlsec.KeyDataFormatPem)
+...         key.name = name
 ...         # adds a copy of *key*
 ...         mngr.addKey(key)
 ...     return mngr
@@ -494,7 +529,7 @@ Verifying a signature with a keys manager
 ...     dsigCtx = xmlsec.DSigCtx(mngr)
 ...     dsigCtx.verify(node)
 ... 
->>> mngr = load_keys(BASEDIR + "rsapub.pem")
+>>> mngr = load_keys((BASEDIR + "rsapub.pem", "rsakey.pem"))
 >>> verify_file_with_keysmngr(BytesIO(signed_file), mngr)
 
 
@@ -608,14 +643,12 @@ Encrypting binary data with a template file
 ...     encKey.name = basename(key_file)
 ...     # Note: the assignment below effectively copies the key
 ...     encCtx.encKey = encKey
-...     encCtx.encryptBinary(node, data)
-...     return tostring(doc)
+...     enc = encCtx.encryptBinary(node, data)
+...     return tostring(enc)
 ... 
 >>> encrypted_data = encrypt_data(BASEDIR + "encrypt1-tmpl.xml", BASEDIR + "deskey.bin", b"123")
 >>> print(to_text(encrypted_data))
-<!-- 
-XML Security Library example: Simple encryption template file for encrypt1 example. 
---><EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#">
+<EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#">
     <EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#tripledes-cbc"/>
     <KeyInfo xmlns="http://www.w3.org/2000/09/xmldsig#">
 	<KeyName>deskey.bin</KeyName>
@@ -787,6 +820,9 @@ Decrypting data with a keys manager
 ...     doc = parse(enc_file)
 ...     encData = xmlsec.findNode(doc, xmlsec.enc("EncryptedData"))
 ...     encCtx = xmlsec.EncCtx(mngr)
+...     # In some of our examples, the `KeyInfo` is not complete.
+...     # We need to activate "lax key searching" for them
+...	encCtx.key_info_flags |= xmlsec.KeySearchLax
 ...     dr = encCtx.decrypt(encData)
 ...     if isinstance(dr, _Element):
 ...         # decrypted XML
@@ -932,17 +968,45 @@ whether this might be caused by unknown id attribute information.
 History
 =======
 
+3.0
+
+   ``xmlsec 1.3.x`` compatibility
+
+   ``xmlsec 1.3.x`` switched from lax to strict
+   key searching by default. When you work with a
+   ``KeysMngr`` and you want the formerly default lax key
+   searching, you must use the (new) ``DsigCtx`` and
+   ``EncCtx`` attribute ``key_info_flags`` and or in
+   ``KeySearchLax``, e.g. ``ctx.key_info_flags |= xmlsec.KeySearchLax``
+   You can set other bits in ``key_info_flags`` to control
+   other aspects of key processing. See ``xmlsec``'s ``keyinfo.h``
+   for the available flags and their meaning.
+
+   ``dm.xmlsec.binding`` now gets transform information (dynamically)
+   in the ``initialize`` call (and no longer statically during
+   the initial import).
+   This significantly reduces the risk for incompatibilities
+   with the ``xmlsec`` version (formerly a frequent problem).
+   As a consequence, ``from dm.xmlsec.binding import *``
+   will not import the transform variables when ``initialize`` has
+   not yet been called (a (minor) backward incompatibility)
+
+   Crash in detailed error information fixed.
+
+   The encryption methods now copy the template tree to
+   avoid possible memory corruption due to application references
+   to parts of the template replaced by ``xmlsec``.
+   For the encryption and decryption methods it is now safe for
+   the application to hold (arbitrary) references into the
+   encrypted/decrypted tree.
+
+   Dynamic crypto engine selection (at initialization time)
+   is now supported (if ``xmlsec`` does).
+
+
 2.2
    Modernize the precompiled C source (to make it compatible
    with Python 3.10).
-
-   In modern ``lxml`` versions, the approach from
-   section  `Accessing encryption/decryption results`_
-   is no longer sufficient to ensure an up to date
-   ``lxml`` view of a document after encryption/decryption.
-   The test broken by this change now uses
-   serialization/reparsing as a work around.
-   I am looking for a better solution.
 
 2.1
    Allow ``Reference`` to have empty attributes.

@@ -3,3 +3,4 @@
 #include <xmlsec/xmldsig.h>
 #include <xmlsec/xmlenc.h>
 #include <xmlsec/errors.h>
+#include <xmlsec/version.h>

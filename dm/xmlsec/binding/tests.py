@@ -2,7 +2,7 @@ from doctest import DocFileSuite, \
      NORMALIZE_WHITESPACE, IGNORE_EXCEPTION_DETAIL, ELLIPSIS, \
      REPORT_UDIFF
 
-def testsuite():
+def test_suite():
   return DocFileSuite(
     'README.txt',
     'tests.txt', # additional tests
